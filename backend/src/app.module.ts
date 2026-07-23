@@ -21,6 +21,10 @@ import { DoughModule } from './dough/dough.module';
 import { FlourInventoryModule } from './flour-inventory/flour-inventory.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { FuelModule } from './fuel/fuel.module';
+import { CustomersModule } from './customers/customers.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
+import { PurchasesModule } from './purchases/purchases.module';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -49,6 +53,10 @@ import { FuelModule } from './fuel/fuel.module';
     FlourInventoryModule,
     InventoryModule,
     FuelModule,
+    CustomersModule,
+    SuppliersModule,
+    PurchasesModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
 })
