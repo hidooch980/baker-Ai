@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/session/session_controller.dart';
 
-/// صفحه ورود (شماره تلفن + رمز عبور). اتصال واقعی به POST /auth/login در فاز بعد افزوده می‌شود.
+/// صفحه ورود (شماره تلفن + رمز عبور) متصل به POST /auth/login.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.onSuccess});
 
@@ -21,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -35,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
+                    textDirection: TextDirection.ltr,
                     decoration: const InputDecoration(labelText: 'شماره تلفن'),
                     validator: (value) => (value == null || value.isEmpty) ? 'شماره تلفن را وارد کنید' : null,
                   ),
@@ -42,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
+                    textDirection: TextDirection.ltr,
                     decoration: const InputDecoration(labelText: 'رمز عبور'),
                     validator: (value) => (value == null || value.length < 6) ? 'رمز عبور باید حداقل ۶ کاراکتر باشد' : null,
                   ),
@@ -67,9 +70,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    // TODO(phase-2): اتصال واقعی به ApiClient.instance و ذخیره توکن.
-    await Future.delayed(const Duration(milliseconds: 500));
+    final error = await SessionController.instance.login(_phoneController.text.trim(), _passwordController.text);
+    if (!mounted) return;
     setState(() => _isLoading = false);
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
     widget.onSuccess?.call();
   }
 }
