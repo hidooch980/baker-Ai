@@ -23,6 +23,12 @@ export class ExpensesController {
   }
 
   @RequirePermissions('finance.manage')
+  @Get('categories')
+  findAllCategories() {
+    return this.expensesService.findAllCategories();
+  }
+
+  @RequirePermissions('finance.manage')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.expensesService.findOne(id);

@@ -21,6 +21,10 @@ export class ExpensesService {
     });
   }
 
+  async findAllCategories() {
+    return this.prisma.expenseCategory.findMany({ orderBy: { name: 'asc' } });
+  }
+
   async findOne(id: string) {
     const expense = await this.prisma.expense.findFirst({ where: { id, deletedAt: null }, include: { category: true } });
     if (!expense) throw new NotFoundException('هزینه یافت نشد.');
