@@ -1,0 +1,3 @@
+# Bakery Manager
+
+Initializing repository.
