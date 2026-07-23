@@ -16,6 +16,11 @@ import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { CardTransactionsModule } from './card-transactions/card-transactions.module';
 import { SalesModule } from './sales/sales.module';
 import { CashBoxModule } from './cash-box/cash-box.module';
+import { ProductionModule } from './production/production.module';
+import { DoughModule } from './dough/dough.module';
+import { FlourInventoryModule } from './flour-inventory/flour-inventory.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { FuelModule } from './fuel/fuel.module';
 
 @Module({
   imports: [
@@ -39,6 +44,11 @@ import { CashBoxModule } from './cash-box/cash-box.module';
     CardTransactionsModule,
     SalesModule,
     CashBoxModule,
+    ProductionModule,
+    DoughModule,
+    FlourInventoryModule,
+    InventoryModule,
+    FuelModule,
   ],
   controllers: [AppController],
 })
