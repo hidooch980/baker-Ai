@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bakery}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-bakery_manager}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bakery}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bakery}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-bakery_manager}?schema=public
+      NODE_ENV: production
+      PORT: 3000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_access_secret}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
