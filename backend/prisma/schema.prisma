@@ -1,0 +1,842 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  CONFLICT
+  FAILED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VOID
+  CANCEL
+  REVERSE
+  LOGIN
+  LOGOUT
+  PRICE_CHANGE
+  DAY_CLOSE
+  DAY_REOPEN
+  PERMISSION_CHANGE
+  INVENTORY_ADJUSTMENT
+  OTHER
+}
+
+enum PaymentMethodType {
+  CASH
+  CARD
+  CREDIT
+  BANK_TRANSFER
+  OTHER
+}
+
+enum SaleType {
+  RETAIL
+  WHOLESALE
+  ORGANIZATIONAL
+}
+
+enum SaleStatus {
+  ACTIVE
+  VOIDED
+  REVERSED
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  HALF_DAY
+  OVERTIME
+}
+
+enum InventoryTxType {
+  INITIAL
+  PURCHASE
+  RECEIVE
+  TRANSFER
+  CONSUMPTION
+  ADJUSTMENT
+  WASTE
+}
+
+enum DocumentType {
+  SALE
+  PURCHASE
+  EXPENSE
+  PAYMENT
+  DAILY_CLOSING
+  CUSTOMER_TX
+  SUPPLIER_TX
+}
+
+enum NotificationType {
+  LOW_FLOUR
+  LOW_FUEL
+  LOW_MATERIAL
+  DEBT_DUE
+  CASH_DISCREPANCY
+  CARD_DISCREPANCY
+  ABNORMAL_FLOUR_CONSUMPTION
+  ABNORMAL_WASTE
+  SALES_DROP
+  OTHER
+}
+
+enum FuelType {
+  DIESEL
+  NATURAL_GAS
+  GASOLINE
+  OTHER
+}
+
+enum BackupType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  MANUAL
+}
+
+enum BackupStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum AIRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// ---------- Auth / RBAC ----------
+
+model User {
+  id           String    @id @default(uuid())
+  fullName     String
+  phone        String    @unique
+  email        String?   @unique
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  userRoles      UserRole[]
+  employee       Employee?
+  auditLogs      AuditLog[]        @relation("AuditLogUser")
+  notifications  Notification[]
+  aiConversations AIConversation[]
+
+  @@index([phone])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g. "sales.create"
+  description String?
+  module      String
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  id       String @id @default(uuid())
+  userId   String
+  roleId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+// ---------- Bakery / Settings ----------
+
+model Bakery {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings BakerySetting?
+}
+
+model BakerySetting {
+  id             String   @id @default(uuid())
+  bakeryId       String   @unique
+  bakery         Bakery   @relation(fields: [bakeryId], references: [id], onDelete: Cascade)
+  currency       String   @default("IRR")
+  weightUnit     String   @default("kg")
+  volumeUnit     String   @default("liter")
+  timezone       String   @default("Asia/Tehran")
+  fiscalDayStart String   @default("00:00")
+  updatedAt      DateTime @updatedAt
+}
+
+// ---------- Products ----------
+
+model Product {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  type        String?
+  weightGrams Float?
+  unit        String   @default("عدد")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  prices         ProductPrice[]
+  saleItems      SaleItem[]
+  productionItems ProductionItem[]
+
+  @@index([code])
+}
+
+model ProductPrice {
+  id          String    @id @default(uuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price       Decimal   @db.Decimal(14, 2)
+  effectiveFrom DateTime @default(now())
+  effectiveTo   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([productId, effectiveFrom])
+}
+
+// ---------- Production / Dough ----------
+
+model Production {
+  id            String     @id @default(uuid())
+  date          DateTime
+  shift         ShiftType
+  operatorId    String?
+  doughWeightKg Float?
+  batchCount    Int?
+  batchWeightKg Float?
+  notes         String?
+  version       Int        @default(1)
+  syncStatus    SyncStatus @default(SYNCED)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  items       ProductionItem[]
+  doughBatches DoughBatch[]
+
+  @@index([date])
+}
+
+model ProductionItem {
+  id             String     @id @default(uuid())
+  productionId   String
+  production     Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product    @relation(fields: [productId], references: [id])
+  producedQty    Int        @default(0)
+  wasteQty       Int        @default(0)
+  returnedQty    Int        @default(0)
+  createdAt      DateTime   @default(now())
+
+  @@index([productionId])
+  @@index([productId])
+}
+
+model DoughBatch {
+  id           String     @id @default(uuid())
+  productionId String?
+  production   Production? @relation(fields: [productionId], references: [id])
+  flourKg      Float
+  waterLiters  Float
+  saltKg       Float
+  yeastKg      Float
+  doughWeightKg Float
+  pieceCount   Int?
+  pieceWeightG Float?
+  operatorId   String?
+  producedAt   DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+
+  divisions DoughDivision[]
+}
+
+model DoughDivision {
+  id           String     @id @default(uuid())
+  doughBatchId String
+  doughBatch   DoughBatch @relation(fields: [doughBatchId], references: [id], onDelete: Cascade)
+  productId    String?
+  pieceCount   Int
+  pieceWeightG Float
+  createdAt    DateTime   @default(now())
+}
+
+// ---------- Sales / Payments ----------
+
+model Sale {
+  id           String     @id @default(uuid())
+  docNumber    String     @unique
+  date         DateTime   @default(now())
+  customerId   String?
+  customer     Customer?  @relation(fields: [customerId], references: [id])
+  type         SaleType   @default(RETAIL)
+  status       SaleStatus @default(ACTIVE)
+  discount     Decimal    @default(0) @db.Decimal(14, 2)
+  totalAmount  Decimal    @db.Decimal(14, 2)
+  createdById  String?
+  version      Int        @default(1)
+  syncStatus   SyncStatus @default(SYNCED)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  items    SaleItem[]
+  payments Payment[]
+
+  @@index([date])
+  @@index([customerId])
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal @db.Decimal(14, 2)
+  discount  Decimal @default(0) @db.Decimal(14, 2)
+  lineTotal Decimal @db.Decimal(14, 2)
+
+  @@index([saleId])
+}
+
+model PaymentMethod {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  type     PaymentMethodType
+  isActive Boolean @default(true)
+
+  payments Payment[]
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  saleId          String?
+  sale            Sale?         @relation(fields: [saleId], references: [id])
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  supplierId      String?
+  supplier        Supplier?     @relation(fields: [supplierId], references: [id])
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  amount          Decimal       @db.Decimal(14, 2)
+  direction       String        @default("IN") // IN | OUT
+  docNumber       String?       @unique
+  version         Int           @default(1)
+  syncStatus      SyncStatus    @default(SYNCED)
+  createdAt       DateTime      @default(now())
+  deletedAt       DateTime?
+
+  @@index([customerId])
+  @@index([supplierId])
+}
+
+model CardTransaction {
+  id           String   @id @default(uuid())
+  amount       Decimal  @db.Decimal(14, 2)
+  occurredAt   DateTime
+  terminalId   String?
+  traceNumber  String?
+  refNumber    String?
+  createdById  String?
+  reconciled   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([occurredAt])
+}
+
+// ---------- Cash Box ----------
+
+model CashBox {
+  id             String   @id @default(uuid())
+  date           DateTime @unique
+  openingBalance Decimal  @db.Decimal(14, 2)
+  closingBalance Decimal? @db.Decimal(14, 2)
+  calculatedBalance Decimal? @db.Decimal(14, 2)
+  discrepancy    Decimal? @db.Decimal(14, 2)
+  isClosed       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions CashTransaction[]
+}
+
+model CashTransaction {
+  id         String   @id @default(uuid())
+  cashBoxId  String
+  cashBox    CashBox  @relation(fields: [cashBoxId], references: [id], onDelete: Cascade)
+  type       String   // RECEIPT | SALE_CASH | DEBT_RECEIPT | EXPENSE | MANAGER_WITHDRAWAL | SUPPLIER_PAYMENT
+  amount     Decimal  @db.Decimal(14, 2)
+  note       String?
+  createdById String?
+  version    Int      @default(1)
+  syncStatus SyncStatus @default(SYNCED)
+  createdAt  DateTime @default(now())
+  deletedAt  DateTime?
+
+  @@index([cashBoxId])
+}
+
+// ---------- Expenses ----------
+
+model ExpenseCategory {
+  id       String @id @default(uuid())
+  name     String @unique
+  isPersonal Boolean @default(false)
+
+  expenses Expense[]
+}
+
+model Expense {
+  id              String          @id @default(uuid())
+  title           String
+  amount          Decimal         @db.Decimal(14, 2)
+  date            DateTime        @default(now())
+  categoryId      String
+  category        ExpenseCategory @relation(fields: [categoryId], references: [id])
+  paymentMethodId String?
+  description     String?
+  receiptFileUrl  String?
+  isPersonal      Boolean         @default(false)
+  createdById     String?
+  version         Int             @default(1)
+  syncStatus      SyncStatus      @default(SYNCED)
+  createdAt       DateTime        @default(now())
+  deletedAt       DateTime?
+
+  @@index([date])
+  @@index([categoryId])
+}
+
+// ---------- Purchases / Suppliers ----------
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  address   String?
+  goodsType String?
+  balance   Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  transactions SupplierTransaction[]
+  purchases    Purchase[]
+  payments     Payment[]
+}
+
+model SupplierTransaction {
+  id         String   @id @default(uuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  type       String   // PURCHASE | PAYMENT | DEBT | SETTLEMENT
+  amount     Decimal  @db.Decimal(14, 2)
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([supplierId])
+}
+
+model Purchase {
+  id           String    @id @default(uuid())
+  docNumber    String    @unique
+  invoiceNumber String?
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id])
+  category     String    // FLOUR | MATERIAL | FUEL | EQUIPMENT | OTHER
+  date         DateTime  @default(now())
+  discount     Decimal   @default(0) @db.Decimal(14, 2)
+  totalAmount  Decimal   @db.Decimal(14, 2)
+  paidAmount   Decimal   @default(0) @db.Decimal(14, 2)
+  debtAmount   Decimal   @default(0) @db.Decimal(14, 2)
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  items PurchaseItem[]
+
+  @@index([date])
+}
+
+model PurchaseItem {
+  id         String   @id @default(uuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  itemName   String
+  quantity   Float
+  unit       String
+  unitPrice  Decimal  @db.Decimal(14, 2)
+  lineTotal  Decimal  @db.Decimal(14, 2)
+
+  @@index([purchaseId])
+}
+
+// ---------- Customers / Debts ----------
+
+model Customer {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?
+  address     String?
+  description String?
+  isCredit    Boolean  @default(false)
+  balance     Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  sales        Sale[]
+  payments     Payment[]
+  transactions CustomerTransaction[]
+}
+
+model CustomerTransaction {
+  id          String     @id @default(uuid())
+  customerId  String
+  customer    Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type        String     // PURCHASE | PAYMENT | DEBT | SETTLEMENT
+  amount      Decimal    @db.Decimal(14, 2)
+  dueDate     DateTime?
+  note        String?
+  version     Int        @default(1)
+  syncStatus  SyncStatus @default(SYNCED)
+  createdAt   DateTime   @default(now())
+
+  @@index([customerId])
+  @@index([dueDate])
+}
+
+// ---------- Employees / Payroll ----------
+
+model Employee {
+  id           String   @id @default(uuid())
+  userId       String?  @unique
+  user         User?    @relation(fields: [userId], references: [id])
+  fullName     String
+  role         String   // مدیر | فروشنده | خمیرگیر | چانه‌گیر | نانوا | حسابدار
+  phone        String?
+  baseSalary   Decimal? @db.Decimal(14, 2)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  shifts      EmployeeShift[]
+  attendances Attendance[]
+  payrolls    Payroll[]
+}
+
+model EmployeeShift {
+  id         String    @id @default(uuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift      ShiftType
+  date       DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([employeeId, date])
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime
+  status     AttendanceStatus @default(PRESENT)
+  overtimeHours Float         @default(0)
+  note       String?
+  createdAt  DateTime         @default(now())
+
+  @@index([employeeId, date])
+}
+
+model Payroll {
+  id         String    @id @default(uuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  periodEnd   DateTime
+  baseAmount  Decimal  @db.Decimal(14, 2)
+  advances    Decimal  @default(0) @db.Decimal(14, 2)
+  deductions  Decimal  @default(0) @db.Decimal(14, 2)
+  netAmount   Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+
+  payments PayrollPayment[]
+}
+
+model PayrollPayment {
+  id        String   @id @default(uuid())
+  payrollId String
+  payroll   Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  amount    Decimal  @db.Decimal(14, 2)
+  paidAt    DateTime @default(now())
+
+  @@index([payrollId])
+}
+
+// ---------- Inventory (generic materials) ----------
+
+model Inventory {
+  id            String   @id @default(uuid())
+  name         String   @unique
+  unit          String
+  currentStock  Float    @default(0)
+  minStock      Float    @default(0)
+  price         Decimal? @db.Decimal(14, 2)
+  supplierId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  transactions InventoryTransaction[]
+}
+
+model InventoryTransaction {
+  id          String          @id @default(uuid())
+  inventoryId String
+  inventory   Inventory       @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  type        InventoryTxType
+  quantity    Float
+  note        String?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  @@index([inventoryId])
+}
+
+// ---------- Flour ----------
+
+model FlourInventory {
+  id            String   @id @default(uuid())
+  currentStockKg Float   @default(0)
+  minStockKg     Float   @default(0)
+  updatedAt      DateTime @updatedAt
+
+  transactions FlourTransaction[]
+}
+
+model FlourTransaction {
+  id               String          @id @default(uuid())
+  flourInventoryId String
+  flourInventory   FlourInventory  @relation(fields: [flourInventoryId], references: [id], onDelete: Cascade)
+  type             InventoryTxType
+  bagCount         Int?
+  bagWeightKg      Float?
+  totalWeightKg    Float
+  pricePerBag      Decimal?        @db.Decimal(14, 2)
+  totalPrice       Decimal?        @db.Decimal(14, 2)
+  supplierId       String?
+  invoiceNumber    String?
+  date             DateTime        @default(now())
+  createdById      String?
+  createdAt        DateTime        @default(now())
+
+  @@index([date])
+}
+
+// ---------- Fuel ----------
+
+model FuelTank {
+  id           String   @id @default(uuid())
+  fuelType     FuelType
+  capacityLiters Float
+  currentLiters  Float  @default(0)
+  updatedAt    DateTime @updatedAt
+
+  transactions FuelTransaction[]
+}
+
+model FuelTransaction {
+  id            String          @id @default(uuid())
+  fuelTankId    String
+  fuelTank      FuelTank        @relation(fields: [fuelTankId], references: [id], onDelete: Cascade)
+  type          InventoryTxType
+  liters        Float
+  pricePerLiter Decimal?        @db.Decimal(14, 2)
+  totalPrice    Decimal?        @db.Decimal(14, 2)
+  date          DateTime        @default(now())
+  createdById   String?
+  createdAt     DateTime        @default(now())
+
+  @@index([date])
+}
+
+// ---------- Daily Closing / Documents ----------
+
+model DailyClosing {
+  id                 String   @id @default(uuid())
+  date               DateTime @unique
+  totalProduction    Int      @default(0)
+  totalSales         Decimal  @default(0) @db.Decimal(14, 2)
+  cashSales          Decimal  @default(0) @db.Decimal(14, 2)
+  cardSales          Decimal  @default(0) @db.Decimal(14, 2)
+  creditSales        Decimal  @default(0) @db.Decimal(14, 2)
+  totalExpenses      Decimal  @default(0) @db.Decimal(14, 2)
+  personalWithdrawals Decimal @default(0) @db.Decimal(14, 2)
+  totalPurchases     Decimal  @default(0) @db.Decimal(14, 2)
+  flourConsumedKg    Float    @default(0)
+  fuelConsumedLiters Float    @default(0)
+  wasteQty           Int      @default(0)
+  cashBalance        Decimal  @default(0) @db.Decimal(14, 2)
+  approxProfit       Decimal  @default(0) @db.Decimal(14, 2)
+  isLocked           Boolean  @default(false)
+  closedById         String?
+  closedAt           DateTime?
+  reopenReason        String?
+  createdAt          DateTime @default(now())
+
+  @@index([date])
+}
+
+model DocumentSequence {
+  id       String       @id @default(uuid())
+  type     DocumentType @unique
+  prefix   String
+  lastValue Int         @default(0)
+  updatedAt DateTime    @updatedAt
+}
+
+// ---------- Notifications / Audit / Sync / Backup ----------
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String?
+  user      User?            @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  user       User?       @relation("AuditLogUser", fields: [userId], references: [id])
+  action     AuditAction
+  entity     String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  reason     String?
+  ipAddress  String?
+  device     String?
+  createdAt  DateTime    @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+}
+
+model SyncQueue {
+  id          String     @id @default(uuid())
+  entity      String
+  entityId    String
+  operation   String     // CREATE | UPDATE | DELETE
+  payload     Json
+  clientId    String?
+  status      SyncStatus @default(PENDING)
+  errorMessage String?
+  createdAt   DateTime   @default(now())
+  processedAt DateTime?
+
+  @@index([status])
+  @@index([entity, entityId])
+}
+
+model Backup {
+  id        String       @id @default(uuid())
+  type      BackupType
+  status    BackupStatus @default(PENDING)
+  fileUrl   String?
+  sizeBytes Int?
+  startedAt DateTime     @default(now())
+  finishedAt DateTime?
+  note      String?
+
+  @@index([type, status])
+}
+
+// ---------- AI ----------
+
+model AIConversation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt DateTime @default(now())
+
+  messages AIMessage[]
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AIRole
+  content        String
+  dataContext    Json?
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
