@@ -28,4 +28,12 @@ export class AuditLogService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async findLoginHistory(userId: string) {
+    return this.prisma.auditLog.findMany({
+      where: { entity: 'User', entityId: userId, action: { in: [AuditAction.LOGIN, AuditAction.LOGOUT] } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
 }

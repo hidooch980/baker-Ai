@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
@@ -31,10 +32,13 @@ import { DailyClosingModule } from './daily-closing/daily-closing.module';
 import { ReportsModule } from './reports/reports.module';
 import { SyncModule } from './sync/sync.module';
 import { AiModule } from './ai/ai.module';
+import { BackupModule } from './backup/backup.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: Number(process.env.THROTTLE_TTL ?? 60) * 1000,
@@ -69,6 +73,8 @@ import { AiModule } from './ai/ai.module';
     ReportsModule,
     SyncModule,
     AiModule,
+    BackupModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
 })

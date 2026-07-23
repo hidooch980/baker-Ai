@@ -13,6 +13,7 @@ const PERMISSIONS: Array<{ key: string; module: string; description: string }> =
   { key: 'dough.manage', module: 'dough', description: 'مدیریت خمیر و چانه' },
   { key: 'finance.manage', module: 'finance', description: 'مدیریت مالی و صندوق' },
   { key: 'reports.view', module: 'reports', description: 'مشاهده گزارش‌ها' },
+  { key: 'employees.manage', module: 'employees', description: 'مدیریت پرسنل، حضور و غیاب و حقوق و دستمزد' },
 ];
 
 const ROLES: Array<{ name: string; permissionKeys: string[] }> = [
@@ -21,7 +22,7 @@ const ROLES: Array<{ name: string; permissionKeys: string[] }> = [
   { name: 'خمیرگیر', permissionKeys: ['production.manage', 'dough.manage'] },
   { name: 'چانه‌گیر', permissionKeys: ['production.manage', 'dough.manage'] },
   { name: 'نانوا', permissionKeys: ['production.manage'] },
-  { name: 'حسابدار', permissionKeys: ['finance.manage', 'reports.view'] },
+  { name: 'حسابدار', permissionKeys: ['finance.manage', 'reports.view', 'employees.manage'] },
 ];
 
 async function main() {
