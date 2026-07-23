@@ -30,6 +30,7 @@ import { PayrollModule } from './payroll/payroll.module';
 import { DailyClosingModule } from './daily-closing/daily-closing.module';
 import { ReportsModule } from './reports/reports.module';
 import { SyncModule } from './sync/sync.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { SyncModule } from './sync/sync.module';
     DailyClosingModule,
     ReportsModule,
     SyncModule,
+    AiModule,
   ],
   controllers: [AppController],
 })
