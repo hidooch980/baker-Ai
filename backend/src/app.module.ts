@@ -29,6 +29,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { DailyClosingModule } from './daily-closing/daily-closing.module';
 import { ReportsModule } from './reports/reports.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ReportsModule } from './reports/reports.module';
     PayrollModule,
     DailyClosingModule,
     ReportsModule,
+    SyncModule,
   ],
   controllers: [AppController],
 })
