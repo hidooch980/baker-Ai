@@ -10,6 +10,12 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { HealthModule } from './health/health.module';
+import { DocumentSequenceModule } from './document-sequence/document-sequence.module';
+import { ProductsModule } from './products/products.module';
+import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
+import { CardTransactionsModule } from './card-transactions/card-transactions.module';
+import { SalesModule } from './sales/sales.module';
+import { CashBoxModule } from './cash-box/cash-box.module';
 
 @Module({
   imports: [
@@ -27,6 +33,12 @@ import { HealthModule } from './health/health.module';
     RolesModule,
     PermissionsModule,
     HealthModule,
+    DocumentSequenceModule,
+    ProductsModule,
+    PaymentMethodsModule,
+    CardTransactionsModule,
+    SalesModule,
+    CashBoxModule,
   ],
   controllers: [AppController],
 })
