@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../sales/sales_screen.dart';
+import '../production/production_screen.dart';
+import '../inventory/inventory_screen.dart';
 import '../placeholders/placeholder_screens.dart';
 
-/// پوسته اصلی با ناوبری پایین شامل شش بخش: خانه، فروش، تولید، انبار، مالی، بیشتر.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -15,9 +17,9 @@ class _AppShellState extends State<AppShell> {
 
   static const List<Widget> _pages = [
     DashboardScreen(),
-    SalesPlaceholderScreen(),
-    ProductionPlaceholderScreen(),
-    InventoryPlaceholderScreen(),
+    SalesScreen(),
+    ProductionScreen(),
+    InventoryScreen(),
     FinancePlaceholderScreen(),
     MorePlaceholderScreen(),
   ];
@@ -27,7 +29,7 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQuickActions(context),
+        onPressed: _showQuickActions,
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: NavigationBar(
@@ -45,16 +47,30 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  void _showQuickActions(BuildContext context) {
+  void _showQuickActions() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
-            ListTile(leading: const Icon(Icons.point_of_sale), title: const Text('فروش جدید'), onTap: () => Navigator.pop(context)),
-            ListTile(leading: const Icon(Icons.bakery_dining), title: const Text('تولید جدید'), onTap: () => Navigator.pop(context)),
-            ListTile(leading: const Icon(Icons.receipt_long), title: const Text('هزینه جدید'), onTap: () => Navigator.pop(context)),
-            ListTile(leading: const Icon(Icons.payments), title: const Text('دریافت/پرداخت وجه'), onTap: () => Navigator.pop(context)),
+            ListTile(
+              leading: const Icon(Icons.point_of_sale),
+              title: const Text('فروش جدید'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewSaleScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bakery_dining),
+              title: const Text('تولید جدید'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewProductionScreen()));
+              },
+            ),
+            ListTile(leading: const Icon(Icons.receipt_long), title: const Text('هزینه جدید'), onTap: () => Navigator.pop(sheetContext)),
+            ListTile(leading: const Icon(Icons.payments), title: const Text('دریافت/پرداخت وجه'), onTap: () => Navigator.pop(sheetContext)),
           ],
         ),
       ),
