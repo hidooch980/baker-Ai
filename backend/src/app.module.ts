@@ -27,6 +27,8 @@ import { PurchasesModule } from './purchases/purchases.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { EmployeesModule } from './employees/employees.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { DailyClosingModule } from './daily-closing/daily-closing.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { PayrollModule } from './payroll/payroll.module';
     ExpensesModule,
     EmployeesModule,
     PayrollModule,
+    DailyClosingModule,
+    ReportsModule,
   ],
   controllers: [AppController],
 })
