@@ -9,4 +9,9 @@ export default () => ({
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   },
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  ai: {
+    apiKey: process.env.AI_API_KEY,
+    baseUrl: process.env.AI_BASE_URL ?? 'https://api.openai.com/v1',
+    model: process.env.AI_MODEL ?? 'gpt-4o-mini',
+  },
 });
