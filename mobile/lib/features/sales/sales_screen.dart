@@ -219,7 +219,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               children: [
                 if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
                 DropdownButtonFormField<String>(
-                  value: _type,
+                  initialValue: _type,
                   decoration: const InputDecoration(labelText: 'نوع فروش'),
                   items: const [
                     DropdownMenuItem(value: 'RETAIL', child: Text('خرد')),
@@ -230,7 +230,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _customerId,
+                  initialValue: _customerId,
                   decoration: const InputDecoration(labelText: 'مشتری (اختیاری)'),
                   items: _customers.map((c) => DropdownMenuItem<String>(value: c['id'] as String, child: Text(c['name'] as String))).toList(),
                   onChanged: (value) => setState(() => _customerId = value),
@@ -245,7 +245,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _paymentMethodId,
+                  initialValue: _paymentMethodId,
                   decoration: const InputDecoration(labelText: 'روش پرداخت'),
                   items: _paymentMethods.map((p) => DropdownMenuItem<String>(value: p['id'] as String, child: Text(p['name'] as String))).toList(),
                   onChanged: (value) => setState(() => _paymentMethodId = value),
@@ -290,7 +290,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
         child: Column(
           children: [
             DropdownButtonFormField<String>(
-              value: item.productId,
+              initialValue: item.productId,
               decoration: const InputDecoration(labelText: 'محصول'),
               items: _products.map((p) => DropdownMenuItem<String>(value: p['id'] as String, child: Text(p['name'] as String))).toList(),
               onChanged: (value) => setState(() => item.productId = value),

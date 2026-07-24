@@ -190,7 +190,7 @@ class _NewProductionScreenState extends State<NewProductionScreen> {
                   onTap: _pickDate,
                 ),
                 DropdownButtonFormField<String>(
-                  value: _shift,
+                  initialValue: _shift,
                   decoration: const InputDecoration(labelText: 'شیفت'),
                   items: const [
                     DropdownMenuItem(value: 'MORNING', child: Text('صبح')),
@@ -235,7 +235,7 @@ class _NewProductionScreenState extends State<NewProductionScreen> {
         child: Column(
           children: [
             DropdownButtonFormField<String>(
-              value: item.productId,
+              initialValue: item.productId,
               decoration: const InputDecoration(labelText: 'محصول'),
               items: _products.map((p) => DropdownMenuItem<String>(value: p['id'] as String, child: Text(p['name'] as String))).toList(),
               onChanged: (value) => setState(() => item.productId = value),

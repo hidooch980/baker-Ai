@@ -182,14 +182,14 @@ class _NewPurchaseScreenState extends State<NewPurchaseScreen> {
               children: [
                 if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
                 DropdownButtonFormField<String>(
-                  value: _category,
+                  initialValue: _category,
                   decoration: const InputDecoration(labelText: 'دسته'),
                   items: _purchaseCategoryLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
                   onChanged: (value) => setState(() => _category = value ?? 'MATERIAL'),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _supplierId,
+                  initialValue: _supplierId,
                   decoration: const InputDecoration(labelText: 'تامین‌کننده (اختیاری)'),
                   items: _suppliers.map((s) => DropdownMenuItem<String>(value: s['id'] as String, child: Text(s['name'] as String))).toList(),
                   onChanged: (value) => setState(() => _supplierId = value),

@@ -215,7 +215,7 @@ class _FuelTabState extends State<_FuelTab> {
           title: const Text('مخزن سوخت جدید'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
-              value: fuelType,
+              initialValue: fuelType,
               decoration: const InputDecoration(labelText: 'نوع سوخت'),
               items: _fuelLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
               onChanged: (value) => setDialogState(() => fuelType = value ?? 'DIESEL'),
@@ -418,7 +418,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
           title: const Text('اصلاح موجودی'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
-              value: type,
+              initialValue: type,
               decoration: const InputDecoration(labelText: 'نوع تراکنش'),
               items: _txTypeLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
               onChanged: (value) => setDialogState(() => type = value ?? 'PURCHASE'),

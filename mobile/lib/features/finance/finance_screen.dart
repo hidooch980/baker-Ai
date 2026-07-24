@@ -115,7 +115,7 @@ class _CashBoxTabState extends State<_CashBoxTab> {
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               DropdownButtonFormField<String>(
-                value: type,
+                initialValue: type,
                 decoration: const InputDecoration(labelText: 'نوع'),
                 items: _cashTxLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
                 onChanged: (value) => setDialogState(() => type = value ?? 'RECEIPT'),
@@ -375,7 +375,7 @@ class _ExpensesTabState extends State<_ExpensesTab> {
               TextField(controller: titleController, decoration: const InputDecoration(labelText: 'عنوان')),
               TextField(controller: amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مبلف')),
               DropdownButtonFormField<String>(
-                value: categoryId,
+                initialValue: categoryId,
                 decoration: const InputDecoration(labelText: 'دسته'),
                 items: _categories.map((c) => DropdownMenuItem<String>(value: c['id'] as String, child: Text(c['name'] as String))).toList(),
                 onChanged: (value) => setDialogState(() => categoryId = value),
