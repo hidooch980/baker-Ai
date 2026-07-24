@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../../core/offline/sync_engine.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../sales/sales_screen.dart';
 import '../production/production_screen.dart';
@@ -25,6 +28,13 @@ class _AppShellState extends State<AppShell> {
     FinanceScreen(),
     MoreScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // راه‌اندازی موتور همگام‌سازی آفلاین پس از ورود کاربر.
+    unawaited(SyncEngine.instance.start());
+  }
 
   @override
   Widget build(BuildContext context) {
