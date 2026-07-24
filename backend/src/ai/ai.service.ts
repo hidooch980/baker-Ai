@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomersService } from '../customers/customers.service';
@@ -39,9 +39,15 @@ export class AiService {
   }
 
   async ask(question: string, userId?: string, conversationId?: string) {
-    const conversation = conversationId
-      ? await this.prisma.aIConversation.findUnique({ where: { id: conversationId } })
-      : await this.prisma.aIConversation.create({ data: { userId: userId ?? null, title: question.slice(0, 60) } });
+    let conversation;
+    if (conversationId) {
+      conversation = await this.prisma.aIConversation.findUnique({ where: { id: conversationId } });
+    } else {
+      if (!userId) throw new UnauthorizedException('کاربر نامعتبر است.');
+      conversation = await this.prisma.aIConversation.create({
+        data: { userId, title: question.slice(0, 60) },
+      });
+    }
 
     if (!conversation) throw new NotFoundException('گفتگو یافت نشد.');
 
