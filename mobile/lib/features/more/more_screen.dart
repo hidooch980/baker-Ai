@@ -11,6 +11,8 @@ import '../notifications/notifications_screen.dart';
 import '../ai/ai_chat_screen.dart';
 import '../sync/sync_status_screen.dart';
 import '../backup/backup_screen.dart';
+import '../products/products_screen.dart';
+import '../payment_methods/payment_methods_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -41,12 +43,24 @@ class MoreScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PurchasesScreen())),
           ),
           const Divider(),
-          const _SectionHeader(title: 'تولید'),
+          const _SectionHeader(title: 'تولید و محصولات'),
           ListTile(
             leading: const Icon(Icons.bakery_dining_outlined),
             title: const Text('چانه‌گیری خمیر'),
             trailing: const Icon(Icons.chevron_left),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DoughScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.breakfast_dining_outlined),
+            title: const Text('مدیریت محصولات و قیمت‌ها'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProductsScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.credit_card_outlined),
+            title: const Text('روش‌های پرداخت'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentMethodsScreen())),
           ),
           const Divider(),
           const _SectionHeader(title: 'پرسنل و حقوق'),
