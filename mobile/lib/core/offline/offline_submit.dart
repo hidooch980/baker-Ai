@@ -15,21 +15,17 @@ class SubmitResult {
   final bool queued;
 }
 
+/// انواع خطای Dio که نشان‌دهنده قطع شبکه یا در دسترس نبودن سرور هستند.
+const Set<DioExceptionType> _networkErrorTypes = {
+  DioExceptionType.connectionError,
+  DioExceptionType.connectionTimeout,
+  DioExceptionType.sendTimeout,
+  DioExceptionType.receiveTimeout,
+};
+
 /// آیا خطا ناشی از قطع شبکه یا در دسترس نبودن سرور است؟
 bool isNetworkError(Object error) {
-  if (error is! DioException) return false;
-  switch (error.type) {
-    case DioExceptionType.connectionError:
-    case DioExceptionType.connectionTimeout:
-    case DioExceptionType.sendTimeout:
-    case DioExceptionType.receiveTimeout:
-      return true;
-    case DioExceptionType.badCertificate:
-    case DioExceptionType.badResponse:
-    case DioExceptionType.cancel:
-    case DioExceptionType.unknown:
-      return false;
-  }
+  return error is DioException && _networkErrorTypes.contains(error.type);
 }
 
 /// ابتدا تلاش می‌کند عملیات را آنلاین ارسال کند؛ در صورت خطای شبکه،
