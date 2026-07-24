@@ -78,3 +78,12 @@ jobs:
 
       - name: Unit tests
         run: flutter test
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bakery-manager-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
