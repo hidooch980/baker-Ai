@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, Prisma } from '@prisma/client';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 
-/** مدیریت تامین‌کنندگان و حساب بدهی به آنها. */
+/** مدیریت تامین‌کنندگان و حساب بدهی به آنها. محاسبه مانده‌ها با Prisma.Decimal انجام می‌شود. */
 @Injectable()
 export class SuppliersService {
   constructor(
@@ -65,7 +65,9 @@ export class SuppliersService {
       where: { deletedAt: null, balance: { gt: 0 } },
       orderBy: { balance: 'desc' },
     });
-    const totalPayable = creditors.reduce((sum, s) => sum + Number(s.balance), 0);
+    const totalPayable = creditors
+      .reduce((sum, s) => sum.plus(s.balance), new Prisma.Decimal(0))
+      .toNumber();
     return { creditors, totalPayable };
   }
 }

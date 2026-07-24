@@ -5,7 +5,7 @@ import { CustomersService } from '../customers/customers.service';
 import { FlourInventoryService } from '../flour-inventory/flour-inventory.service';
 import { FuelService } from '../fuel/fuel.service';
 import { ExpensesService } from '../expenses/expenses.service';
-import { AIRole, PaymentMethodType, SaleStatus } from '@prisma/client';
+import { AIRole, PaymentMethodType, Prisma, SaleStatus } from '@prisma/client';
 
 type GroundedContext = Record<string, unknown>;
 
@@ -13,6 +13,7 @@ type GroundedContext = Record<string, unknown>;
  * دستیار هوش مند (Bakery AI): به سوالات فارسی درباره وضعیت نانوایی فقط بر اساس داده‌های واقعی داخل سیستم پاسخ می‌دهد (بدون توهم/حدس).
  * اگر کلید API هوش مصنوعی (AI_API_KEY) تنظیم شده باشد، مدل زبانی برای روان‌سازی متن فراخوانی می‌شود؛
  * در صورت عدم وجود کلید، پاسخ ترکیبی ساده از همان داده‌های مستندساز بازگردانده می‌شود.
+ * جمع مبالغ فروش با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار رخ ندهد.
  */
 @Injectable()
 export class AiService {
@@ -87,19 +88,25 @@ export class AiService {
         where: { date: { gte: todayStart, lt: todayEnd }, status: SaleStatus.ACTIVE },
         include: { payments: { include: { paymentMethod: true } } },
       });
-      const totalSales = sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-      let cash = 0;
-      let card = 0;
-      let credit = 0;
+      const totalSales = sales.reduce((sum, s) => sum.plus(s.totalAmount), new Prisma.Decimal(0));
+      let cash = new Prisma.Decimal(0);
+      let card = new Prisma.Decimal(0);
+      let credit = new Prisma.Decimal(0);
       for (const sale of sales) {
         for (const payment of sale.payments) {
-          const amount = Number(payment.amount);
-          if (payment.paymentMethod.type === PaymentMethodType.CASH) cash += amount;
-          else if (payment.paymentMethod.type === PaymentMethodType.CARD) card += amount;
-          else if (payment.paymentMethod.type === PaymentMethodType.CREDIT) credit += amount;
+          const amount = new Prisma.Decimal(payment.amount);
+          if (payment.paymentMethod.type === PaymentMethodType.CASH) cash = cash.plus(amount);
+          else if (payment.paymentMethod.type === PaymentMethodType.CARD) card = card.plus(amount);
+          else if (payment.paymentMethod.type === PaymentMethodType.CREDIT) credit = credit.plus(amount);
         }
       }
-      context.todaySales = { totalSales, cash, card, credit, saleCount: sales.length };
+      context.todaySales = {
+        totalSales: totalSales.toNumber(),
+        cash: cash.toNumber(),
+        card: card.toNumber(),
+        credit: credit.toNumber(),
+        saleCount: sales.length,
+      };
     }
 
     if (mentionsDebt || noneMatched) {

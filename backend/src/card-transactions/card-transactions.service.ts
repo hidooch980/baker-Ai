@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 /**
  * تطبیق دستگاه کارتخوان (POS): تراکنش‌های وارده از دستگاه را با فروش‌های نقدی/کارتی ثبت‌شده در سیستم مقایسه می‌کند.
+ * محاسبه با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار در تشخیص مغایرت رخ ندهد.
  */
 @Injectable()
 export class CardTransactionsService {
@@ -22,7 +24,7 @@ export class CardTransactionsService {
 
   async reconcileForDate(date: Date) {
     const transactions = await this.findByDate(date);
-    const totalTerminal = transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalTerminal = transactions.reduce((sum, t) => sum.plus(t.amount), new Prisma.Decimal(0));
 
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
@@ -35,20 +37,24 @@ export class CardTransactionsService {
           where: { paymentMethodId: paymentMethod.id, createdAt: { gte: start, lt: end } },
         })
       : [];
-    const totalSales = cardPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalSales = cardPayments.reduce((sum, p) => sum.plus(p.amount), new Prisma.Decimal(0));
 
-    const discrepancy = totalTerminal - totalSales;
+    const discrepancy = totalTerminal.minus(totalSales);
 
-    if (Math.abs(discrepancy) > 0.01) {
+    if (discrepancy.abs().greaterThan(0.01)) {
       await this.prisma.notification.create({
         data: {
           type: 'CARD_DISCREPANCY',
-          title: 'مفایرت دستگاه کارتخوان',
-          message: `مبلف دستگاه کارتخوان با مبلف فروش‌های کارتی تفاوت دارد (${discrepancy}).`,
+          title: 'مغایرت دستگاه کارتخوان',
+          message: `مبلغ دستگاه کارتخوان با مبلغ فروش‌های کارتی تفاوت دارد (${discrepancy.toString()}).`,
         },
       });
     }
 
-    return { totalTerminal, totalSales, discrepancy };
+    return {
+      totalTerminal: totalTerminal.toNumber(),
+      totalSales: totalSales.toNumber(),
+      discrepancy: discrepancy.toNumber(),
+    };
   }
 }

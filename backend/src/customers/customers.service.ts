@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction, NotificationType } from '@prisma/client';
+import { AuditAction, NotificationType, Prisma } from '@prisma/client';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-/** مدیریت مشتریان و دفتر بدهکاران/بستانکاران. */
+/** مدیریت مشتریان و دفتر بدهکاران/بستانکاران. محاسبه مانده‌ها با Prisma.Decimal انجام می‌شود. */
 @Injectable()
 export class CustomersService {
   constructor(
@@ -67,7 +67,9 @@ export class CustomersService {
       where: { deletedAt: null, balance: { gt: 0 } },
       orderBy: { balance: 'desc' },
     });
-    const totalDebt = debtors.reduce((sum, c) => sum + Number(c.balance), 0);
+    const totalDebt = debtors
+      .reduce((sum, c) => sum.plus(c.balance), new Prisma.Decimal(0))
+      .toNumber();
     return { debtors, totalDebt };
   }
 
@@ -79,7 +81,7 @@ export class CustomersService {
       include: { customer: true },
     });
     for (const item of overdue) {
-      if (Number(item.customer.balance) > 0) {
+      if (new Prisma.Decimal(item.customer.balance).greaterThan(0)) {
         await this.prisma.notification.create({
           data: {
             type: NotificationType.DEBT_DUE,
