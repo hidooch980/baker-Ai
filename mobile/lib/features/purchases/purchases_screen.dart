@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_error.dart';
 import '../../core/localization/fa_numbers.dart';
+import '../../core/offline/sync_engine.dart';
 
 const _purchaseCategoryLabels = {
   'FLOUR': 'آرد',
@@ -123,13 +124,17 @@ class _NewPurchaseScreenState extends State<NewPurchaseScreen> {
   Future<void> _loadSuppliers() async {
     try {
       final response = await ApiClient.instance.dio.get('/suppliers');
+      if (!mounted) return;
       setState(() {
         _suppliers = (response.data as List).cast<Map<String, dynamic>>();
         _isLoadingLookups = false;
       });
     } catch (e) {
+      // در حالت آفلاین، تامین‌کنندگان از کش محلی خوانده می‌شوند.
+      final cached = await SyncEngine.instance.cachedReference('suppliers');
+      if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e);
+        _suppliers = cached;
         _isLoadingLookups = false;
       });
     }

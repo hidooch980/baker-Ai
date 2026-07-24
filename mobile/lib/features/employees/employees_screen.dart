@@ -2,19 +2,21 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_error.dart';
 import '../../core/localization/fa_numbers.dart';
+import '../../core/offline/offline_submit.dart';
+import '../../core/offline/sync_engine.dart';
 
 const _roleOptions = ['مدیر', 'فروشنده', 'خمیرگیر', 'چانه‌گیر', 'نانوا', 'حسابدار'];
 
 const _shiftLabels = {
   'MORNING': 'صبح',
-  'AFTERNOON': 'بعدازهر',
+  'AFTERNOON': 'بعدازظهر',
   'EVENING': 'عصر',
   'NIGHT': 'شب',
 };
 
 const _attendanceLabels = {
   'PRESENT': 'حاضر',
-  'ABSENT': 'قایب',
+  'ABSENT': 'غایب',
   'LEAVE': 'مرخصی',
   'HALF_DAY': 'نیم‌روز',
   'OVERTIME': 'اضافه‌کاری',
@@ -50,8 +52,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      // در حالت آفلاین از کش محلی استفاده می‌شود.
+      final cached = await SyncEngine.instance.cachedReference('employees');
+      if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e);
+        _employees = cached;
+        _error = cached.isEmpty ? apiErrorMessage(e) : null;
         _isLoading = false;
       });
     }
@@ -254,6 +260,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
     final overtimeController = TextEditingController();
     final noteController = TextEditingController();
     String? error;
+    bool queuedOffline = false;
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -288,16 +295,26 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('انصراف')),
             ElevatedButton(
               onPressed: () async {
+                final data = <String, dynamic>{
+                  'date': date.toIso8601String(),
+                  'status': status,
+                  if (overtimeController.text.trim().isNotEmpty) 'overtimeHours': double.tryParse(overtimeController.text.trim()),
+                  if (noteController.text.trim().isNotEmpty) 'note': noteController.text.trim(),
+                };
                 try {
-                  await ApiClient.instance.dio.post('/employees/${widget.employeeId}/attendance', data: {
-                    'date': date.toIso8601String(),
-                    'status': status,
-                    if (overtimeController.text.trim().isNotEmpty) 'overtimeHours': double.tryParse(overtimeController.text.trim()),
-                    if (noteController.text.trim().isNotEmpty) 'note': noteController.text.trim(),
-                  });
+                  await ApiClient.instance.dio.post('/employees/${widget.employeeId}/attendance', data: data);
                   if (dialogContext.mounted) Navigator.pop(dialogContext, true);
                 } catch (e) {
-                  setDialogState(() => error = apiErrorMessage(e));
+                  if (isNetworkError(e)) {
+                    await SyncEngine.instance.enqueue(
+                      entity: 'Attendance',
+                      payload: {'employeeId': widget.employeeId, ...data},
+                    );
+                    queuedOffline = true;
+                    if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                  } else {
+                    setDialogState(() => error = apiErrorMessage(e));
+                  }
                 }
               },
               child: const Text('ثبت'),
@@ -306,7 +323,16 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
         ),
       ),
     );
-    if (ok == true) _load();
+    if (ok == true) {
+      if (queuedOffline) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('اینترنت در دسترس نیست؛ حضور و غیاب به صورت آفلاین ذخیره شد و پس از اتصال، خودکار همگام می‌شود.')),
+        );
+      } else {
+        _load();
+      }
+    }
   }
 
   @override
