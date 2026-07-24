@@ -13,6 +13,7 @@ import '../sync/sync_status_screen.dart';
 import '../backup/backup_screen.dart';
 import '../products/products_screen.dart';
 import '../payment_methods/payment_methods_screen.dart';
+import '../users/users_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -89,6 +90,14 @@ class MoreScreen extends StatelessWidget {
             title: const Text('گزارش‌ها'),
             trailing: const Icon(Icons.chevron_left),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen())),
+          ),
+          const Divider(),
+          const _SectionHeader(title: 'مدیریت سیستم'),
+          ListTile(
+            leading: const Icon(Icons.admin_panel_settings_outlined),
+            title: const Text('کاربران و نقش‌ها'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UsersScreen())),
           ),
           const Divider(),
           const _SectionHeader(title: 'سایر'),
