@@ -25,7 +25,7 @@ class FaNumbers {
     return buffer.toString();
   }
 
-  static String formatCurrency(num amount, {String unit = 'تومان'}) {
+  static String formatCurrency(num amount, {String unit = 'ریال'}) {
     final formatted = amount.toStringAsFixed(0).replaceAllMapped(
           RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
           (match) => '${match[1]},',
