@@ -102,7 +102,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             final isRead = notification['isRead'] == true;
                             final createdAt = (notification['createdAt'] as String? ?? '').split('T').first;
                             return Card(
-                              color: isRead ? null : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                              color: isRead ? null : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                               child: ListTile(
                                 leading: Icon(
                                   isRead ? Icons.notifications_none : Icons.notifications_active_outlined,

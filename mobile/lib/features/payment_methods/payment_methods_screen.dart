@@ -60,7 +60,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
               TextField(controller: nameController, decoration: const InputDecoration(labelText: 'نام (مثلاً کارتخوان ملت) *')),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: type,
+                initialValue: type,
                 decoration: const InputDecoration(labelText: 'نوع'),
                 items: _paymentTypeLabels.entries
                     .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value)))

@@ -143,7 +143,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                           decoration: BoxDecoration(
                             color: isUser
                                 ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context).colorScheme.surfaceVariant,
+                                : Theme.of(context).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(message['content'] ?? ''),

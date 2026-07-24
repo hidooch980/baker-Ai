@@ -94,7 +94,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               DropdownButtonFormField<String>(
-                value: type,
+                initialValue: type,
                 decoration: const InputDecoration(labelText: 'نوع'),
                 items: const [
                   DropdownMenuItem(value: 'PAYMENT', child: Text('دریافت')),
