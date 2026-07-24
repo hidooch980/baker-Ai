@@ -109,6 +109,15 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
     await _loadQueue();
   }
 
+  Future<void> _retryItem(QueuedOperation item) async {
+    await SyncEngine.instance.retryOperation(item.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تلاش مجدد برای همگام‌سازی آغاز شد.')),
+    );
+    await _loadQueue();
+  }
+
   @override
   Widget build(BuildContext context) {
     final engine = SyncEngine.instance;
@@ -216,9 +225,20 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                     ),
                     trailing: item.status == 'PENDING'
                         ? null
-                        : IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            onPressed: () => _removeItem(item),
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (item.status == 'FAILED')
+                                IconButton(
+                                  icon: const Icon(Icons.refresh, color: Colors.blue),
+                                  tooltip: 'تلاش مجدد',
+                                  onPressed: () => _retryItem(item),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () => _removeItem(item),
+                              ),
+                            ],
                           ),
                   ),
                 ),

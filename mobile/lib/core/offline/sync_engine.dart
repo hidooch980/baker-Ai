@@ -131,6 +131,18 @@ class SyncEngine extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// یک عملیات ناموفق یا دارای تعارض را دوباره به حالت «در انتظار» برمی‌گرداند
+  /// و بلافاصله یک تلاش مجدد برای همگام‌سازی انجام می‌دهد.
+  Future<void> retryOperation(String id) async {
+    final db = await LocalDb.instance.open();
+    db.execute(
+      "UPDATE sync_queue SET status = 'PENDING', error = NULL WHERE id = ?",
+      [id],
+    );
+    notifyListeners();
+    unawaited(syncNow());
+  }
+
   /// داده مرجع کش‌شده (مثل products، customers، paymentMethods) برای استفاده آفلاین در فرم‌ها.
   Future<List<Map<String, dynamic>>> cachedReference(String name) async {
     final db = await LocalDb.instance.open();

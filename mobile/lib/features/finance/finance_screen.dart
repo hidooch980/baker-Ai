@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_error.dart';
 import '../../core/localization/fa_numbers.dart';
+import '../../core/offline/offline_submit.dart';
+import '../../core/offline/sync_engine.dart';
 
 class FinanceScreen extends StatelessWidget {
   const FinanceScreen({super.key});
@@ -330,13 +334,33 @@ class _ExpensesTab extends StatefulWidget {
 class _ExpensesTabState extends State<_ExpensesTab> {
   List<Map<String, dynamic>> _expenses = [];
   List<Map<String, dynamic>> _categories = [];
+  List<QueuedOperation> _queuedExpenses = [];
   bool _isLoading = true;
+  bool _isOffline = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    SyncEngine.instance.addListener(_onEngineChanged);
     _load();
+  }
+
+  @override
+  void dispose() {
+    SyncEngine.instance.removeListener(_onEngineChanged);
+    super.dispose();
+  }
+
+  void _onEngineChanged() {
+    if (!mounted) return;
+    unawaited(_loadQueuedExpenses());
+  }
+
+  Future<void> _loadQueuedExpenses() async {
+    final all = await SyncEngine.instance.items();
+    if (!mounted) return;
+    setState(() => _queuedExpenses = all.where((item) => item.entity == 'Expense').toList());
   }
 
   Future<void> _load() async {
@@ -344,17 +368,32 @@ class _ExpensesTabState extends State<_ExpensesTab> {
       _isLoading = true;
       _error = null;
     });
+    await _loadQueuedExpenses();
+    if (!mounted) return;
+    final dio = ApiClient.instance.dio;
     try {
-      final dio = ApiClient.instance.dio;
       final results = await Future.wait([dio.get('/expenses'), dio.get('/expenses/categories')]);
+      if (!mounted) return;
       setState(() {
         _expenses = (results[0].data as List).cast<Map<String, dynamic>>();
         _categories = (results[1].data as List).cast<Map<String, dynamic>>();
+        _isOffline = false;
         _isLoading = false;
       });
     } catch (e) {
+      if (!isNetworkError(e)) {
+        if (!mounted) return;
+        setState(() {
+          _error = apiErrorMessage(e);
+          _isLoading = false;
+        });
+        return;
+      }
+      final cachedCategories = await SyncEngine.instance.cachedReference('expenseCategories');
+      if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e);
+        _categories = cachedCategories;
+        _isOffline = true;
         _isLoading = false;
       });
     }
@@ -391,13 +430,20 @@ class _ExpensesTabState extends State<_ExpensesTab> {
       }),
     );
     if (result != true || categoryId == null) return;
+    final payload = <String, dynamic>{
+      'title': titleController.text.trim(),
+      'amount': double.tryParse(amountController.text.trim()) ?? 0,
+      'categoryId': categoryId,
+      if (descriptionController.text.trim().isNotEmpty) 'description': descriptionController.text.trim(),
+    };
     try {
-      await ApiClient.instance.dio.post('/expenses', data: {
-        'title': titleController.text.trim(),
-        'amount': double.tryParse(amountController.text.trim()) ?? 0,
-        'categoryId': categoryId,
-        if (descriptionController.text.trim().isNotEmpty) 'description': descriptionController.text.trim(),
-      });
+      final submitResult = await submitOrQueue(path: '/expenses', entity: 'Expense', payload: payload);
+      if (!mounted) return;
+      if (submitResult.queued) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('اینترنت در دسترس نیست؛ هزینه به صورت محلی ذخیره شد و پس از اتصال همگام می‌شود.')),
+        );
+      }
       _load();
     } catch (e) {
       if (!mounted) return;
@@ -415,6 +461,16 @@ class _ExpensesTabState extends State<_ExpensesTab> {
     }
   }
 
+  Future<void> _retryQueuedExpense(QueuedOperation item) async {
+    await SyncEngine.instance.retryOperation(item.id);
+    await _loadQueuedExpenses();
+  }
+
+  Future<void> _removeQueuedExpense(QueuedOperation item) async {
+    await SyncEngine.instance.removeOperation(item.id);
+    await _loadQueuedExpenses();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
@@ -423,26 +479,80 @@ class _ExpensesTabState extends State<_ExpensesTab> {
       floatingActionButton: FloatingActionButton(onPressed: _createExpense, child: const Icon(Icons.add)),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: _expenses.isEmpty
-            ? const Center(child: Text('هنوز هزینه‌ای ثبت نشده است.'))
-            : ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: _expenses.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final expense = _expenses[index];
-                  return Card(
-                    child: ListTile(
-                      title: Text(expense['title'] as String),
-                      subtitle: Text((expense['date'] as String? ?? '').split('T').first),
-                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(FaNumbers.formatCurrency(double.tryParse(expense['amount'].toString()) ?? 0)),
-                        IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteExpense(expense['id'] as String)),
-                      ]),
+        child: ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            if (_isOffline)
+              Card(
+                color: Colors.orange.shade50,
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Row(children: [
+                    Icon(Icons.wifi_off, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text('اتصال اینترنت برقرار نیست؛ دسته‌ها از حافظه محلی نمایش داده می‌شوند.'),
                     ),
-                  );
-                },
+                  ]),
+                ),
               ),
+            if (_queuedExpenses.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text('در صف همگام‌سازی', style: Theme.of(context).textTheme.titleMedium),
+              ),
+              ..._queuedExpenses.map((item) {
+                final payload = item.payload;
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
+                      item.status == 'FAILED' ? Icons.error_outline : Icons.schedule,
+                      color: item.status == 'FAILED' ? Colors.red : Colors.orange,
+                    ),
+                    title: Text(payload['title']?.toString() ?? ''),
+                    subtitle: Text(
+                      '${item.status == 'FAILED' ? 'ناموفق' : 'در انتظار همگام‌سازی'}'
+                      '${item.error != null ? '\n${item.error}' : ''}',
+                    ),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(FaNumbers.formatCurrency(double.tryParse(payload['amount'].toString()) ?? 0)),
+                      if (item.status == 'FAILED')
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: Colors.blue),
+                          tooltip: 'تلاش مجدد',
+                          onPressed: () => _retryQueuedExpense(item),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => _removeQueuedExpense(item),
+                      ),
+                    ]),
+                  ),
+                );
+              }),
+              const Divider(),
+            ],
+            if (_expenses.isEmpty && _queuedExpenses.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: Text('هنوز هزینه‌ای ثبت نشده است.')),
+              )
+            else
+              ..._expenses.map((expense) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Card(
+                      child: ListTile(
+                        title: Text(expense['title'] as String),
+                        subtitle: Text((expense['date'] as String? ?? '').split('T').first),
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(FaNumbers.formatCurrency(double.tryParse(expense['amount'].toString()) ?? 0)),
+                          IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _deleteExpense(expense['id'] as String)),
+                        ]),
+                      ),
+                    ),
+                  )),
+          ],
+        ),
       ),
     );
   }
