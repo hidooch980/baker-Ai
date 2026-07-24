@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, Prisma } from '@prisma/client';
 
 /**
  * مدیریت صندوق: باز کردن روز، ثبت دریافت/پرداخت نقدی، و بستن روز با مقایسه موجودی واقعی با موجودی محاسبه‌شده.
+ * محاسبه موجودی با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار در تشخیص مغایرت صندوق رخ ندهد.
  */
 @Injectable()
 export class CashBoxService {
@@ -43,7 +44,7 @@ export class CashBoxService {
     return this.prisma.cashTransaction.create({ data: { cashBoxId, type, amount, note, createdById: actorId } });
   }
 
-  async calculateBalance(cashBoxId: string) {
+  async calculateBalance(cashBoxId: string): Promise<InstanceType<typeof Prisma.Decimal>> {
     const cashBox = await this.prisma.cashBox.findUnique({
       where: { id: cashBoxId },
       include: { transactions: true },
@@ -51,10 +52,10 @@ export class CashBoxService {
     if (!cashBox) throw new NotFoundException('صندوق یافت نشد.');
 
     const inflowTypes = new Set(['RECEIPT', 'SALE_CASH', 'DEBT_RECEIPT']);
-    let calculated = Number(cashBox.openingBalance);
+    let calculated = new Prisma.Decimal(cashBox.openingBalance);
     for (const tx of cashBox.transactions) {
-      const amount = Number(tx.amount);
-      calculated += inflowTypes.has(tx.type) ? amount : -amount;
+      const amount = new Prisma.Decimal(tx.amount);
+      calculated = inflowTypes.has(tx.type) ? calculated.plus(amount) : calculated.minus(amount);
     }
     return calculated;
   }
@@ -65,24 +66,25 @@ export class CashBoxService {
     if (cashBox.isClosed) throw new BadRequestException('این صندوق قبلاً بسته شده است.');
 
     const calculatedBalance = await this.calculateBalance(cashBoxId);
-    const discrepancy = actualClosingBalance - calculatedBalance;
+    const actual = new Prisma.Decimal(actualClosingBalance);
+    const discrepancy = actual.minus(calculatedBalance);
 
     const updated = await this.prisma.cashBox.update({
       where: { id: cashBoxId },
       data: {
-        closingBalance: actualClosingBalance,
+        closingBalance: actual,
         calculatedBalance,
         discrepancy,
         isClosed: true,
       },
     });
 
-    if (Math.abs(discrepancy) > 0.01) {
+    if (discrepancy.abs().greaterThan(0.01)) {
       await this.prisma.notification.create({
         data: {
           type: 'CASH_DISCREPANCY',
-          title: 'مفایرت موجودی صندوق',
-          message: `موجودی واقعی با موجودی محاسبه‌شده ${discrepancy} تومان اختلاف دارد.`,
+          title: 'مغایرت موجودی صندوق',
+          message: `موجودی واقعی با موجودی محاسبه‌شده ${discrepancy.toString()} ریال اختلاف دارد.`,
         },
       });
     }

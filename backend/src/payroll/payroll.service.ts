@@ -1,12 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, Prisma } from '@prisma/client';
 import { GeneratePayrollDto } from './dto/generate-payroll.dto';
 
-/** محاسبه حقوق و دستمزد با درنظر گرفتن اضافه‌کاری، مساعده‌ها و کسورات. */
+/**
+ * محاسبه حقوق و دستمزد با درنظر گرفتن اضافه‌کاری، مساعده‌ها و کسورات.
+ * تمام محاسبات مبلغ با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار روی فیش حقوق رخ ندهد.
+ */
 const WORKING_DAYS_PER_MONTH = 30;
 const WORKING_HOURS_PER_DAY = 8;
+const OVERTIME_MULTIPLIER = 1.4;
 
 @Injectable()
 export class PayrollService {
@@ -31,18 +35,18 @@ export class PayrollService {
 
     const periodStart = new Date(dto.periodStart);
     const periodEnd = new Date(dto.periodEnd);
-    const baseAmount = Number(employee.baseSalary ?? 0);
+    const baseAmount = new Prisma.Decimal(employee.baseSalary ?? 0);
 
     const attendances = await this.prisma.attendance.findMany({
       where: { employeeId: dto.employeeId, date: { gte: periodStart, lte: periodEnd } },
     });
     const totalOvertimeHours = attendances.reduce((sum, a) => sum + a.overtimeHours, 0);
-    const hourlyRate = baseAmount / (WORKING_DAYS_PER_MONTH * WORKING_HOURS_PER_DAY);
-    const overtimePay = totalOvertimeHours * hourlyRate * 1.4;
+    const hourlyRate = baseAmount.div(WORKING_DAYS_PER_MONTH * WORKING_HOURS_PER_DAY);
+    const overtimePay = hourlyRate.mul(totalOvertimeHours).mul(OVERTIME_MULTIPLIER);
 
-    const advances = dto.advances ?? 0;
-    const deductions = dto.deductions ?? 0;
-    const netAmount = baseAmount + overtimePay - advances - deductions;
+    const advances = new Prisma.Decimal(dto.advances ?? 0);
+    const deductions = new Prisma.Decimal(dto.deductions ?? 0);
+    const netAmount = baseAmount.plus(overtimePay).minus(advances).minus(deductions);
 
     const payroll = await this.prisma.payroll.create({
       data: {

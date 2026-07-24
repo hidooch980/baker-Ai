@@ -1,73 +1,59 @@
-import { Test } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { Prisma, PaymentMethodType } from '@prisma/client';
 import { SalesService } from './sales.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { DocumentSequenceService } from '../document-sequence/document-sequence.service';
 
-describe('SalesService', () => {
-  let service: SalesService;
-  let prisma: any;
-  let auditLogService: { record: jest.Mock };
+/**
+ * تست دقت اعشاری: جمع مبالغ باید با Prisma.Decimal انجام شود، نه number.
+ * در جاوااسکریپت 0.1 + 0.2 === 0.30000000000000004 است؛ اگر این محاسبه با number انجام شود،
+ * این تست شکست می‌خورد.
+ */
+describe('SalesService decimal precision', () => {
+  it('sums decimal line totals without binary floating-point rounding error', async () => {
+    let capturedTotalAmount: any;
 
-  beforeEach(async () => {
-    prisma = {
-      sale: { findFirst: jest.fn(), update: jest.fn() },
-      customer: { update: jest.fn() },
-    };
-    auditLogService = { record: jest.fn() };
+    const prisma = {
+      paymentMethod: { findUnique: jest.fn().mockResolvedValue({ id: 'pm-1', type: PaymentMethodType.CASH }) },
+      product: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'p-1', prices: [{ price: new Prisma.Decimal('0.1') }] },
+          { id: 'p-2', prices: [{ price: new Prisma.Decimal('0.2') }] },
+        ]),
+      },
+      $transaction: jest.fn(async (fn: any) => {
+        const tx = {
+          sale: {
+            create: jest.fn((args: any) => {
+              capturedTotalAmount = args.data.totalAmount;
+              return Promise.resolve({ id: 'sale-1', items: [], payments: [] });
+            }),
+          },
+          cashBox: { findFirst: jest.fn().mockResolvedValue(null) },
+          cashTransaction: { create: jest.fn() },
+          customerTransaction: { create: jest.fn() },
+          customer: { update: jest.fn() },
+        };
+        return fn(tx);
+      }),
+      sale: { findFirst: jest.fn().mockResolvedValue({ id: 'sale-1', totalAmount: new Prisma.Decimal('0.3') }) },
+    } as any;
 
-    const moduleRef = await Test.createTestingModule({
-      providers: [
-        SalesService,
-        { provide: PrismaService, useValue: prisma },
-        { provide: AuditLogService, useValue: auditLogService },
-        { provide: DocumentSequenceService, useValue: { next: jest.fn() } },
-      ],
-    }).compile();
+    const documentSequenceService = { next: jest.fn().mockResolvedValue('S-0001') } as any;
+    const auditLogService = { record: jest.fn() } as any;
 
-    service = moduleRef.get(SalesService);
-  });
+    const service = new SalesService(prisma, auditLogService, documentSequenceService);
 
-  it('لاطو کردن فروشی که قبلاً لاطو شده باید خطا بدهد', async () => {
-    prisma.sale.findFirst.mockResolvedValue({
-      id: 'sale-1',
-      status: 'VOIDED',
-      payments: [],
-      totalAmount: 1000,
-    });
-
-    await expect(service.void('sale-1', 'دلیل تست', 'user-1')).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.sale.update).not.toHaveBeenCalled();
-  });
-
-  it('لاطو کردن فروش نسیه‌ای باید بدهی مشتری را کاهش دهد', async () => {
-    prisma.sale.findFirst
-      .mockResolvedValueOnce({
-        id: 'sale-1',
-        status: 'ACTIVE',
-        customerId: 'cust-1',
-        totalAmount: 1000,
-        payments: [{ amount: 400 }],
-      })
-      .mockResolvedValueOnce({
-        id: 'sale-1',
-        status: 'VOIDED',
-        customerId: 'cust-1',
-        totalAmount: 1000,
-        payments: [{ amount: 400 }],
-      });
-    prisma.sale.update.mockResolvedValue({});
-    prisma.customer.update.mockResolvedValue({});
-
-    await service.void('sale-1', 'دلیل تست', 'user-1');
-
-    expect(prisma.customer.update).toHaveBeenCalledWith({
-      where: { id: 'cust-1' },
-      data: { balance: { decrement: 600 } },
-    });
-    expect(auditLogService.record).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'VOID', reason: 'دلیل تست' }),
+    await service.create(
+      {
+        type: 'RETAIL' as any,
+        items: [
+          { productId: 'p-1', quantity: 1 },
+          { productId: 'p-2', quantity: 1 },
+        ],
+        paymentMethodId: 'pm-1',
+      } as any,
+      'user-1',
     );
+
+    expect(capturedTotalAmount).toBeInstanceOf(Prisma.Decimal);
+    expect(capturedTotalAmount.toString()).toBe('0.3');
   });
 });

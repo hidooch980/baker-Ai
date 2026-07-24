@@ -1,11 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction, DocumentType } from '@prisma/client';
+import { AuditAction, DocumentType, Prisma } from '@prisma/client';
 import { DocumentSequenceService } from '../document-sequence/document-sequence.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 
-/** ثبت خرید: مبلف بدهی باقی‌مانده به عنوان بدهی تامین‌کننده ثبت می‌شود. */
+/**
+ * ثبت خرید: مبلغ بدهی باقی‌مانده به عنوان بدهی تامین‌کننده ثبت می‌شود.
+ * تمام محاسبات مبلغ با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار روی بدهی تامین‌کننده رخ ندهد.
+ */
 @Injectable()
 export class PurchasesService {
   constructor(
@@ -38,20 +41,25 @@ export class PurchasesService {
       if (!supplier) throw new BadRequestException('تامین‌کننده معتبر نیست.');
     }
 
-    const itemsData = dto.items.map((item) => ({
-      itemName: item.itemName,
-      quantity: item.quantity,
-      unit: item.unit,
-      unitPrice: item.unitPrice,
-      lineTotal: item.quantity * item.unitPrice,
-    }));
+    const itemsData = dto.items.map((item) => {
+      const unitPrice = new Prisma.Decimal(item.unitPrice);
+      const lineTotal = unitPrice.mul(item.quantity);
+      return {
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice,
+        lineTotal,
+      };
+    });
 
-    let totalAmount = itemsData.reduce((sum, item) => sum + item.lineTotal, 0);
-    totalAmount -= dto.discount ?? 0;
-    if (totalAmount < 0) totalAmount = 0;
+    let totalAmount = itemsData.reduce((sum, item) => sum.plus(item.lineTotal), new Prisma.Decimal(0));
+    const discount = new Prisma.Decimal(dto.discount ?? 0);
+    totalAmount = totalAmount.minus(discount);
+    if (totalAmount.isNegative()) totalAmount = new Prisma.Decimal(0);
 
-    const paidAmount = dto.paidAmount ?? totalAmount;
-    const debtAmount = Math.max(totalAmount - paidAmount, 0);
+    const paidAmount = dto.paidAmount !== undefined ? new Prisma.Decimal(dto.paidAmount) : totalAmount;
+    const debtAmount = Prisma.Decimal.max(totalAmount.minus(paidAmount), 0);
 
     const docNumber = await this.documentSequenceService.next(DocumentType.PURCHASE);
 
@@ -62,7 +70,7 @@ export class PurchasesService {
           invoiceNumber: dto.invoiceNumber,
           supplierId: dto.supplierId,
           category: dto.category,
-          discount: dto.discount ?? 0,
+          discount,
           totalAmount,
           paidAmount,
           debtAmount,
@@ -76,7 +84,7 @@ export class PurchasesService {
         await tx.supplierTransaction.create({
           data: { supplierId: dto.supplierId, type: 'PURCHASE', amount: totalAmount, note: `خرید ${docNumber}` },
         });
-        if (debtAmount > 0) {
+        if (debtAmount.greaterThan(0)) {
           await tx.supplierTransaction.create({
             data: { supplierId: dto.supplierId, type: 'DEBT', amount: debtAmount, note: `بدهی خرید ${docNumber}` },
           });

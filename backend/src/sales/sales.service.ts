@@ -2,12 +2,15 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DocumentSequenceService } from '../document-sequence/document-sequence.service';
-import { AuditAction, DocumentType, PaymentMethodType, SaleStatus } from '@prisma/client';
+import { AuditAction, DocumentType, PaymentMethodType, Prisma, SaleStatus } from '@prisma/client';
 import { CreateSaleDto } from './dto/create-sale.dto';
 
 /**
  * ثبت فروش: قیمت فعلی محصول (اگر ارسال نشده) استفاده می‌شود، شماره سند به صورت خودکار ساخته می‌شود،
  * و اگر نوع پرداخت نسیه باشد، بدهی مشتری در دفتر بدهکاران ثبت و موجودی به‌روز می‌شود.
+ *
+ * تمام محاسبات مبلغ با Prisma.Decimal انجام می‌شود (نه number/float) تا خطای گرد کردن اعشار باینری
+ * (مثل 0.1 + 0.2 !== 0.3 در جاوااسکریپت) رخ ندهد؛ چون این محاسبات مستقیم روی موجودی و بدهی مشتری اثر می‌گذارند.
  */
 @Injectable()
 export class SalesService {
@@ -50,27 +53,29 @@ export class SalesService {
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    let totalAmount = 0;
+    let totalAmount = new Prisma.Decimal(0);
     const itemsData = dto.items.map((item) => {
       const product = productMap.get(item.productId);
       if (!product) throw new BadRequestException('یکی از محصولات یافت نشد.');
-      const unitPrice = item.unitPrice ?? Number(product.prices[0]?.price ?? 0);
-      const lineTotal = unitPrice * item.quantity - (item.discount ?? 0);
-      totalAmount += lineTotal;
+      const unitPrice = new Prisma.Decimal(item.unitPrice ?? product.prices[0]?.price ?? 0);
+      const discount = new Prisma.Decimal(item.discount ?? 0);
+      const lineTotal = unitPrice.mul(item.quantity).minus(discount);
+      totalAmount = totalAmount.plus(lineTotal);
       return {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice,
-        discount: item.discount ?? 0,
+        discount,
         lineTotal,
       };
     });
 
-    totalAmount -= dto.discount ?? 0;
-    if (totalAmount < 0) totalAmount = 0;
+    const saleDiscount = new Prisma.Decimal(dto.discount ?? 0);
+    totalAmount = totalAmount.minus(saleDiscount);
+    if (totalAmount.isNegative()) totalAmount = new Prisma.Decimal(0);
 
     const docNumber = await this.documentSequenceService.next(DocumentType.SALE);
-    const paidAmount = dto.paidAmount ?? totalAmount;
+    const paidAmount = dto.paidAmount !== undefined ? new Prisma.Decimal(dto.paidAmount) : totalAmount;
 
     const sale = await this.prisma.$transaction(async (tx) => {
       const created = await tx.sale.create({
@@ -78,7 +83,7 @@ export class SalesService {
           docNumber,
           type: dto.type,
           status: SaleStatus.ACTIVE,
-          discount: dto.discount ?? 0,
+          discount: saleDiscount,
           totalAmount,
           customerId: dto.customerId,
           createdById: actorId,
@@ -105,8 +110,8 @@ export class SalesService {
       }
 
       if (dto.customerId) {
-        const remainingDebt = totalAmount - paidAmount;
-        if (remainingDebt > 0) {
+        const remainingDebt = totalAmount.minus(paidAmount);
+        if (remainingDebt.greaterThan(0)) {
           await tx.customerTransaction.create({
             data: { customerId: dto.customerId, type: 'DEBT', amount: remainingDebt, note: `بدهی فروش ${docNumber}` },
           });
@@ -131,15 +136,15 @@ export class SalesService {
   async void(id: string, reason: string, actorId?: string) {
     const sale = await this.findOne(id);
     if (sale.status !== SaleStatus.ACTIVE) {
-      throw new BadRequestException('این فروش قبلاً لاطو/برگشت شده است.');
+      throw new BadRequestException('این فروش قبلاً لغو/برگشت شده است.');
     }
 
     await this.prisma.sale.update({ where: { id }, data: { status: SaleStatus.VOIDED } });
 
     if (sale.customerId) {
-      const totalPaid = sale.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const remainingDebt = Number(sale.totalAmount) - totalPaid;
-      if (remainingDebt > 0) {
+      const totalPaid = sale.payments.reduce((sum, p) => sum.plus(p.amount), new Prisma.Decimal(0));
+      const remainingDebt = new Prisma.Decimal(sale.totalAmount).minus(totalPaid);
+      if (remainingDebt.greaterThan(0)) {
         await this.prisma.customer.update({ where: { id: sale.customerId }, data: { balance: { decrement: remainingDebt } } });
       }
     }
