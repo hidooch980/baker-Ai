@@ -8,6 +8,9 @@ import '../dough/dough_screen.dart';
 import '../daily_closing/daily_closing_screen.dart';
 import '../reports/reports_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../ai/ai_chat_screen.dart';
+import '../sync/sync_status_screen.dart';
+import '../backup/backup_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -81,9 +84,24 @@ class MoreScreen extends StatelessWidget {
             trailing: const Icon(Icons.chevron_left),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
           ),
-          _ComingSoonTile(icon: Icons.smart_toy_outlined, title: 'دستیار هوشمند نانوایی'),
-          _ComingSoonTile(icon: Icons.sync_outlined, title: 'وضعیت همگام‌سازی'),
-          _ComingSoonTile(icon: Icons.backup_outlined, title: 'پشتیبان‌گیری'),
+          ListTile(
+            leading: const Icon(Icons.smart_toy_outlined),
+            title: const Text('دستیار هوشمند نانوایی'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiChatScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.sync_outlined),
+            title: const Text('وضعیت همگام‌سازی'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SyncStatusScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.backup_outlined),
+            title: const Text('پشتیبان‌گیری'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
+          ),
         ],
       ),
     );
@@ -99,22 +117,6 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.primary)),
-    );
-  }
-}
-
-class _ComingSoonTile extends StatelessWidget {
-  const _ComingSoonTile({required this.icon, required this.title});
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Text('به‌زودی', style: TextStyle(color: Colors.grey, fontSize: 12)),
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('این بخش به‌زودی افزوده می‌شود.'))),
     );
   }
 }
