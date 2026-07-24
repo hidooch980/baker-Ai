@@ -70,6 +70,12 @@ jobs:
         with:
           channel: stable
 
+      - name: Generate missing native platform files (Android)
+        run: |
+          if [ ! -f "android/app/build.gradle" ]; then
+            flutter create --platforms=android --org com.bakerymanager .
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
