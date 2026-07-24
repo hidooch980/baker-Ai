@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_error.dart';
 import '../../core/localization/fa_numbers.dart';
+import '../../core/offline/offline_submit.dart';
+import '../../core/offline/sync_engine.dart';
 
 class ProductionScreen extends StatefulWidget {
   const ProductionScreen({super.key});
@@ -116,13 +118,18 @@ class _NewProductionScreenState extends State<NewProductionScreen> {
   Future<void> _loadProducts() async {
     try {
       final response = await ApiClient.instance.dio.get('/products');
+      if (!mounted) return;
       setState(() {
         _products = (response.data as List).cast<Map<String, dynamic>>();
         _isLoadingLookups = false;
       });
     } catch (e) {
+      // در حالت آفلاین، محصولات از کش محلی خوانده می‌شوند.
+      final products = await SyncEngine.instance.cachedReference('products');
+      if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e);
+        _products = products;
+        _error = products.isEmpty ? apiErrorMessage(e) : null;
         _isLoadingLookups = false;
       });
     }
@@ -149,20 +156,29 @@ class _NewProductionScreenState extends State<NewProductionScreen> {
       _error = null;
     });
     try {
-      await ApiClient.instance.dio.post('/production', data: {
-        'date': _date.toIso8601String(),
-        'shift': _shift,
-        if (_notesController.text.trim().isNotEmpty) 'notes': _notesController.text.trim(),
-        'items': validItems
-            .map((item) => {
-                  'productId': item.productId,
-                  'producedQty': int.tryParse(item.producedQty ?? '0') ?? 0,
-                  if ((item.wasteQty ?? '').isNotEmpty) 'wasteQty': int.tryParse(item.wasteQty!),
-                  if ((item.returnedQty ?? '').isNotEmpty) 'returnedQty': int.tryParse(item.returnedQty!),
-                })
-            .toList(),
-      });
+      final result = await submitOrQueue(
+        path: '/production',
+        entity: 'Production',
+        payload: {
+          'date': _date.toIso8601String(),
+          'shift': _shift,
+          if (_notesController.text.trim().isNotEmpty) 'notes': _notesController.text.trim(),
+          'items': validItems
+              .map((item) => {
+                    'productId': item.productId,
+                    'producedQty': int.tryParse(item.producedQty ?? '0') ?? 0,
+                    if ((item.wasteQty ?? '').isNotEmpty) 'wasteQty': int.tryParse(item.wasteQty!),
+                    if ((item.returnedQty ?? '').isNotEmpty) 'returnedQty': int.tryParse(item.returnedQty!),
+                  })
+              .toList(),
+        },
+      );
       if (!mounted) return;
+      if (result.queued) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('اینترنت در دسترس نیست؛ تولید به صورت آفلاین ذخیره شد و پس از اتصال، خودکار همگام می‌شود.')),
+        );
+      }
       Navigator.of(context).pop(true);
     } catch (e) {
       setState(() {

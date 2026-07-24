@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_error.dart';
 import '../../core/localization/fa_numbers.dart';
+import '../../core/offline/offline_submit.dart';
+import '../../core/offline/sync_engine.dart';
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
@@ -143,6 +145,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     try {
       final dio = ApiClient.instance.dio;
       final results = await Future.wait([dio.get('/products'), dio.get('/payment-methods'), dio.get('/customers')]);
+      if (!mounted) return;
       setState(() {
         _products = (results[0].data as List).cast<Map<String, dynamic>>();
         _paymentMethods = (results[1].data as List).cast<Map<String, dynamic>>();
@@ -150,8 +153,16 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
         _isLoadingLookups = false;
       });
     } catch (e) {
+      // در حالت آفلاین، داده‌های مرجع از کش محلی خوانده می‌شوند.
+      final products = await SyncEngine.instance.cachedReference('products');
+      final paymentMethods = await SyncEngine.instance.cachedReference('paymentMethods');
+      final customers = await SyncEngine.instance.cachedReference('customers');
+      if (!mounted) return;
       setState(() {
-        _error = apiErrorMessage(e);
+        _products = products;
+        _paymentMethods = paymentMethods;
+        _customers = customers;
+        _error = (products.isEmpty || paymentMethods.isEmpty) ? apiErrorMessage(e) : null;
         _isLoadingLookups = false;
       });
     }
@@ -171,7 +182,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
 
   Future<void> _submit() async {
     if (_paymentMethodId == null) {
-      setState(() => _error = 'روش انتخاب کنید.');
+      setState(() => _error = 'روش پرداخت را انتخاب کنید.');
       return;
     }
     final validItems = _items.where((item) => item.productId != null && (double.tryParse(item.quantity ?? '') ?? 0) > 0).toList();
@@ -184,21 +195,30 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       _error = null;
     });
     try {
-      await ApiClient.instance.dio.post('/sales', data: {
-        'type': _type,
-        if (_customerId != null) 'customerId': _customerId,
-        'paymentMethodId': _paymentMethodId,
-        if (_paidAmountController.text.trim().isNotEmpty) 'paidAmount': double.tryParse(_paidAmountController.text.trim()),
-        'items': validItems
-            .map((item) => {
-                  'productId': item.productId,
-                  'quantity': double.tryParse(item.quantity ?? '0'),
-                  if ((item.unitPrice ?? '').isNotEmpty) 'unitPrice': double.tryParse(item.unitPrice!),
-                  if ((item.discount ?? '').isNotEmpty) 'discount': double.tryParse(item.discount!),
-                })
-            .toList(),
-      });
+      final result = await submitOrQueue(
+        path: '/sales',
+        entity: 'Sale',
+        payload: {
+          'type': _type,
+          if (_customerId != null) 'customerId': _customerId,
+          'paymentMethodId': _paymentMethodId,
+          if (_paidAmountController.text.trim().isNotEmpty) 'paidAmount': double.tryParse(_paidAmountController.text.trim()),
+          'items': validItems
+              .map((item) => {
+                    'productId': item.productId,
+                    'quantity': double.tryParse(item.quantity ?? '0'),
+                    if ((item.unitPrice ?? '').isNotEmpty) 'unitPrice': double.tryParse(item.unitPrice!),
+                    if ((item.discount ?? '').isNotEmpty) 'discount': double.tryParse(item.discount!),
+                  })
+              .toList(),
+        },
+      );
       if (!mounted) return;
+      if (result.queued) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('اینترنت در دسترس نیست؛ فروش به صورت آفلاین ذخیره شد و پس از اتصال، خودکار همگام می‌شود.')),
+        );
+      }
       Navigator.of(context).pop(true);
     } catch (e) {
       setState(() {
@@ -254,7 +274,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                 TextField(
                   controller: _paidAmountController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'مبلف پرداختی (اختیاری)'),
+                  decoration: const InputDecoration(labelText: 'مبلغ پرداختی (اختیاری)'),
                 ),
                 const SizedBox(height: 16),
                 Card(
