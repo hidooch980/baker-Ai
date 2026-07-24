@@ -11,6 +11,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let prisma: any;
   let auditLogService: { record: jest.Mock };
+  let jwtService: { signAsync: jest.Mock; verifyAsync: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -18,18 +19,22 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      refreshToken: {
+        create: jest.fn().mockResolvedValue({}),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+      },
     };
     auditLogService = { record: jest.fn() };
+    jwtService = { signAsync: jest.fn().mockResolvedValue('signed-token'), verifyAsync: jest.fn() };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditLogService, useValue: auditLogService },
-        {
-          provide: JwtService,
-          useValue: { signAsync: jest.fn().mockResolvedValue('signed-token'), verifyAsync: jest.fn() },
-        },
+        { provide: JwtService, useValue: jwtService },
         {
           provide: ConfigService,
           useValue: {
@@ -49,7 +54,7 @@ describe('AuthService', () => {
     service = moduleRef.get(AuthService);
   });
 
-  it('یک کاربر معتبر با رمز صحیح باید توکن دریافت کند', async () => {
+  it('یک کاربر معتبر با رمز صحیح باید توکن دریافت کند و رفرش‌توکن در دیتابیس ذخیره شود', async () => {
     const passwordHash = await bcrypt.hash('secret123', 10);
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -65,6 +70,9 @@ describe('AuthService', () => {
 
     expect(result.accessToken).toBe('signed-token');
     expect(result.refreshToken).toBe('signed-token');
+    expect(prisma.refreshToken.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ userId: 'user-1' }) }),
+    );
     expect(auditLogService.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'LOGIN', entity: 'User', entityId: 'user-1' }),
     );
@@ -83,7 +91,7 @@ describe('AuthService', () => {
     await expect(service.login('09120000000', 'wrong-password')).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('کاربر فعال نباید بتواند وارد شود', async () => {
+  it('کاربر غیرفعال نباید بتواند وارد شود', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       phone: '09120000000',
@@ -93,5 +101,43 @@ describe('AuthService', () => {
     });
 
     await expect(service.login('09120000000', 'any')).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('رفرش معتبر باید توکن قدیمی را باطل و یک جفت توکن جدید صادر کند (rotation)', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', phone: '09120000000' });
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      userId: 'user-1',
+      tokenHash: 'hash',
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      revokedAt: null,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      phone: '09120000000',
+      isActive: true,
+      deletedAt: null,
+    });
+
+    const result = await service.refresh('old-refresh-token');
+
+    expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+      where: { id: 'rt-1' },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(prisma.refreshToken.create).toHaveBeenCalled();
+    expect(result.accessToken).toBe('signed-token');
+  });
+
+  it('استفاده مجدد از رفرش‌توکن باطل‌شده/ناموجود باید تمام نشست‌های کاربر را ابطال کند', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', phone: '09120000000' });
+    prisma.refreshToken.findUnique.mockResolvedValue(null);
+
+    await expect(service.refresh('stolen-refresh-token')).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
   });
 });
