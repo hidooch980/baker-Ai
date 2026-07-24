@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/session/session_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/login_screen.dart';
@@ -19,6 +20,11 @@ class BakeryManagerApp extends StatelessWidget {
       theme: AppTheme.light(),
       locale: const Locale('fa', 'IR'),
       supportedLocales: const [Locale('fa', 'IR'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,

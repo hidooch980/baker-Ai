@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   dio: ^5.7.0
   flutter_riverpod: ^2.6.1
@@ -18,7 +20,8 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
   shamsi_date: ^1.1.1
-  intl: ^0.19.0
+  # نسخه intl توسط flutter_localizations پین می‌شود؛ برای جلوگیری از تداخل نسخه آزاد است.
+  intl: any
   flutter_secure_storage: ^9.2.2
   uuid: ^4.5.1
   connectivity_plus: ^6.0.5
