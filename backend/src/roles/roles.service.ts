@@ -29,10 +29,17 @@ export class RolesService {
     return role;
   }
 
+  /**
+   * جایگزینی کامل دسترسی‌های یک نقش. حذف و ایجاد ردیف‌های rolePermission در یک تراکنش دیتابیسی
+   * انجام می‌شود تا اگر سرور بین این دو عملیات کرش کند، نقش به‌طور موقت با صفر دسترسی باقی نماند
+   * (که می‌توانست باعث قفل‌شدن ناخواسته دسترسی کاربران دارای آن نقش شود).
+   */
   async setPermissions(roleId: string, permissionIds: string[], actorId?: string) {
     const before = await this.findOne(roleId);
-    await this.prisma.rolePermission.deleteMany({ where: { roleId } });
-    await this.prisma.rolePermission.createMany({ data: permissionIds.map((permissionId) => ({ roleId, permissionId })) });
+    await this.prisma.$transaction([
+      this.prisma.rolePermission.deleteMany({ where: { roleId } }),
+      this.prisma.rolePermission.createMany({ data: permissionIds.map((permissionId) => ({ roleId, permissionId })) }),
+    ]);
     const after = await this.findOne(roleId);
     await this.auditLogService.record({
       userId: actorId,
