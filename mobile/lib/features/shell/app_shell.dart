@@ -3,7 +3,8 @@ import '../dashboard/dashboard_screen.dart';
 import '../sales/sales_screen.dart';
 import '../production/production_screen.dart';
 import '../inventory/inventory_screen.dart';
-import '../placeholders/placeholder_screens.dart';
+import '../finance/finance_screen.dart';
+import '../more/more_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -20,8 +21,8 @@ class _AppShellState extends State<AppShell> {
     SalesScreen(),
     ProductionScreen(),
     InventoryScreen(),
-    FinancePlaceholderScreen(),
-    MorePlaceholderScreen(),
+    FinanceScreen(),
+    MoreScreen(),
   ];
 
   @override
@@ -69,8 +70,23 @@ class _AppShellState extends State<AppShell> {
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewProductionScreen()));
               },
             ),
-            ListTile(leading: const Icon(Icons.receipt_long), title: const Text('هزینه جدید'), onTap: () => Navigator.pop(sheetContext)),
-            ListTile(leading: const Icon(Icons.payments), title: const Text('دریافت/پرداخت وجه'), onTap: () => Navigator.pop(sheetContext)),
+            ListTile(
+              leading: const Icon(Icons.shopping_cart),
+              title: const Text('خرید جدید'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewPurchaseScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long),
+              title: const Text('هزینه جدید'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                DefaultTabController.of(context);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FinanceScreen()));
+              },
+            ),
           ],
         ),
       ),
