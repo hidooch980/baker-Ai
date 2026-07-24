@@ -27,12 +27,16 @@ class SessionController extends ChangeNotifier {
   bool isReady = false;
 
   Future<void> bootstrap() async {
-    final token = await _storage.read(key: 'accessToken');
-    final fullName = await _storage.read(key: 'userFullName');
-    final phone = await _storage.read(key: 'userPhone');
-    final id = await _storage.read(key: 'userId');
-    if (token != null && id != null) {
-      currentUser = AuthUser(id: id, fullName: fullName ?? '', phone: phone ?? '');
+    try {
+      final token = await _storage.read(key: 'accessToken');
+      final fullName = await _storage.read(key: 'userFullName');
+      final phone = await _storage.read(key: 'userPhone');
+      final id = await _storage.read(key: 'userId');
+      if (token != null && id != null) {
+        currentUser = AuthUser(id: id, fullName: fullName ?? '', phone: phone ?? '');
+      }
+    } catch (_) {
+      // در صورت خطای حافظه امن (مثلاً در محیط تست)، بدون کاربر ادامه می‌دهیم.
     }
     isReady = true;
     notifyListeners();
