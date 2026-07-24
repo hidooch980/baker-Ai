@@ -795,6 +795,10 @@ model SyncQueue {
   operation   String     // CREATE | UPDATE | DELETE
   payload     Json
   clientId    String?
+  /// شناسه یکتای عملیات سمت کلاینت؛ کلید ایدمپوتنسی برای جلوگیری از ثبت تکراری در سناریوی at-least-once delivery
+  clientOperationId String? @unique
+  /// شناسه رکورد ساخته‌شده در سرور پس از اعمال موفق عملیات (برای بازگرداندن همان نتیجه در ارسال مجدد)
+  serverId    String?
   status      SyncStatus @default(PENDING)
   errorMessage String?
   createdAt   DateTime   @default(now())
