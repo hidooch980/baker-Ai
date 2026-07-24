@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction, PaymentMethodType } from '@prisma/client';
+import { AuditAction, PaymentMethodType, Prisma } from '@prisma/client';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 
 /** ثبت هزینه‌ها، شامل برداشت شخصی مدیر. اگر پرداخت نقدی باشد، از صندوق باز کسر می‌شود. */
@@ -87,12 +87,24 @@ export class ExpensesService {
       where: { deletedAt: null, date: { gte: startDate, lte: endDate } },
       include: { category: true },
     });
-    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-    const personalAmount = expenses.filter((e) => e.isPersonal).reduce((sum, e) => sum + Number(e.amount), 0);
-    const byCategory = expenses.reduce<Record<string, number>>((acc, e) => {
-      acc[e.category.name] = (acc[e.category.name] ?? 0) + Number(e.amount);
+    const totalAmount = expenses.reduce(
+      (sum, e) => sum.plus(e.amount),
+      new Prisma.Decimal(0),
+    );
+    const personalAmount = expenses
+      .filter((e) => e.isPersonal)
+      .reduce((sum, e) => sum.plus(e.amount), new Prisma.Decimal(0));
+    const byCategory = expenses.reduce<Record<string, Prisma.Decimal>>((acc, e) => {
+      const current = acc[e.category.name] ?? new Prisma.Decimal(0);
+      acc[e.category.name] = current.plus(e.amount);
       return acc;
     }, {});
-    return { totalAmount, personalAmount, byCategory };
+    return {
+      totalAmount: totalAmount.toNumber(),
+      personalAmount: personalAmount.toNumber(),
+      byCategory: Object.fromEntries(
+        Object.entries(byCategory).map(([name, value]) => [name, value.toNumber()]),
+      ),
+    };
   }
 }

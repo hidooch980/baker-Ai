@@ -1,0 +1,9 @@
+# نگه‌دارنده پوشه (Placeholder)
+#
+# این فایل فقط برای این است که پوشه assets/icon/ در گیت وجود داشته باشد،
+# چون pubspec.yaml به این مسیر اشاره کرده و در غیر این صورت flutter analyze
+# با خطای asset_directory_does_not_exist متوقف می‌شود.
+#
+# پیش از اجرای flutter_launcher_icons و flutter_native_splash:
+# ۱. فایل‌های icon.png و splash_logo.png (ارسال‌شده در چت) را در همین پوشه قرار دهید.
+# ۲. این فایل .gitkeep را می‌توانید حذف کنید یا نگه دارید (تاثیری ندارد).
