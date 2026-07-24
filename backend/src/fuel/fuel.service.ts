@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction, FuelType, InventoryTxType, NotificationType } from '@prisma/client';
+import { AuditAction, FuelType, InventoryTxType, NotificationType, Prisma } from '@prisma/client';
 
 const LOW_FUEL_RATIO = 0.15;
 
-/** مدیریت مخازن سوخت: شارژ/مصرف و گزارش مصرف. */
+/**
+ * مدیریت مخازن سوخت: شارج/مصرف و گزارش مصرف.
+ * محاسبه قیمت سوخت با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار در گزارش هزینه سوخت رخ ندهد.
+ */
 @Injectable()
 export class FuelService {
   constructor(
@@ -29,7 +32,7 @@ export class FuelService {
 
   async addFuel(tankId: string, liters: number, pricePerLiter: number | undefined, actorId?: string) {
     await this.getTank(tankId);
-    const totalPrice = pricePerLiter ? pricePerLiter * liters : undefined;
+    const totalPrice = pricePerLiter !== undefined ? new Prisma.Decimal(pricePerLiter).mul(liters) : undefined;
 
     const transaction = await this.prisma.$transaction(async (tx) => {
       const created = await tx.fuelTransaction.create({
@@ -75,7 +78,9 @@ export class FuelService {
       where: { fuelTankId: tankId, type: InventoryTxType.CONSUMPTION, date: { gte: startDate, lte: endDate } },
     });
     const totalConsumedLiters = transactions.reduce((sum, t) => sum + t.liters, 0);
-    const totalCost = transactions.reduce((sum, t) => sum + Number(t.totalPrice ?? 0), 0);
+    const totalCost = transactions
+      .reduce((sum, t) => sum.plus(t.totalPrice ?? 0), new Prisma.Decimal(0))
+      .toNumber();
     return { totalConsumedLiters, totalCost, transactionCount: transactions.length };
   }
 }
