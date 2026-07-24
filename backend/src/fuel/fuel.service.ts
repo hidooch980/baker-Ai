@@ -28,7 +28,7 @@ export class FuelService {
   }
 
   async addFuel(tankId: string, liters: number, pricePerLiter: number | undefined, actorId?: string) {
-    const tank = await this.getTank(tankId);
+    await this.getTank(tankId);
     const totalPrice = pricePerLiter ? pricePerLiter * liters : undefined;
 
     const transaction = await this.prisma.$transaction(async (tx) => {
@@ -44,7 +44,7 @@ export class FuelService {
   }
 
   async consumeFuel(tankId: string, liters: number, note: string | undefined, actorId?: string) {
-    const tank = await this.getTank(tankId);
+    await this.getTank(tankId);
 
     const transaction = await this.prisma.$transaction(async (tx) => {
       const created = await tx.fuelTransaction.create({
