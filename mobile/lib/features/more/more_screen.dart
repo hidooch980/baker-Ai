@@ -6,6 +6,8 @@ import '../employees/employees_screen.dart';
 import '../payroll/payroll_screen.dart';
 import '../dough/dough_screen.dart';
 import '../daily_closing/daily_closing_screen.dart';
+import '../reports/reports_screen.dart';
+import '../notifications/notifications_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -65,10 +67,20 @@ class MoreScreen extends StatelessWidget {
             trailing: const Icon(Icons.chevron_left),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyClosingScreen())),
           ),
-          _ComingSoonTile(icon: Icons.bar_chart_outlined, title: 'گزارش‌ها'),
+          ListTile(
+            leading: const Icon(Icons.bar_chart_outlined),
+            title: const Text('گزارش‌ها'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen())),
+          ),
           const Divider(),
           const _SectionHeader(title: 'سایر'),
-          _ComingSoonTile(icon: Icons.notifications_outlined, title: 'اعلان‌ها'),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('اعلان‌ها'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+          ),
           _ComingSoonTile(icon: Icons.smart_toy_outlined, title: 'دستیار هوشمند نانوایی'),
           _ComingSoonTile(icon: Icons.sync_outlined, title: 'وضعیت همگام‌سازی'),
           _ComingSoonTile(icon: Icons.backup_outlined, title: 'پشتیبان‌گیری'),
