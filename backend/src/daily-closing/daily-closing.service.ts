@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditAction, InventoryTxType, PaymentMethodType, SaleStatus } from '@prisma/client';
+import { AuditAction, InventoryTxType, PaymentMethodType, Prisma, SaleStatus } from '@prisma/client';
 
 /**
  * بستن روز (روتین ترازنامه): تمام داده‌های مالی/تولیدی روز را جمع می‌کند، قفل می‌شود و دیگر قابل ویرایش نیست
  * مگر با باز‌کردن (reopen) همراه با دلیل و ثبت در لاگ حسابرسی.
+ *
+ * جمع مبالغ با Prisma.Decimal انجام می‌شود تا خطای گرد کردن اعشار در ترازنامه‌ی روز رخ ندهد.
  */
 @Injectable()
 export class DailyClosingService {
@@ -44,26 +46,30 @@ export class DailyClosingService {
       where: { date: { gte: start, lt: end }, status: SaleStatus.ACTIVE },
       include: { payments: { include: { paymentMethod: true } } },
     });
-    const totalSales = sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+    const totalSales = sales.reduce((sum, s) => sum.plus(s.totalAmount), new Prisma.Decimal(0));
 
-    let cashSales = 0;
-    let cardSales = 0;
-    let creditSales = 0;
+    let cashSales = new Prisma.Decimal(0);
+    let cardSales = new Prisma.Decimal(0);
+    let creditSales = new Prisma.Decimal(0);
     for (const sale of sales) {
       for (const payment of sale.payments) {
-        const amount = Number(payment.amount);
-        if (payment.paymentMethod.type === PaymentMethodType.CASH) cashSales += amount;
-        else if (payment.paymentMethod.type === PaymentMethodType.CARD) cardSales += amount;
-        else if (payment.paymentMethod.type === PaymentMethodType.CREDIT) creditSales += amount;
+        const amount = new Prisma.Decimal(payment.amount);
+        if (payment.paymentMethod.type === PaymentMethodType.CASH) cashSales = cashSales.plus(amount);
+        else if (payment.paymentMethod.type === PaymentMethodType.CARD) cardSales = cardSales.plus(amount);
+        else if (payment.paymentMethod.type === PaymentMethodType.CREDIT) creditSales = creditSales.plus(amount);
       }
     }
 
     const expenses = await this.prisma.expense.findMany({ where: { date: { gte: start, lt: end }, deletedAt: null } });
-    const totalExpenses = expenses.filter((e) => !e.isPersonal).reduce((sum, e) => sum + Number(e.amount), 0);
-    const personalWithdrawals = expenses.filter((e) => e.isPersonal).reduce((sum, e) => sum + Number(e.amount), 0);
+    const totalExpenses = expenses
+      .filter((e) => !e.isPersonal)
+      .reduce((sum, e) => sum.plus(e.amount), new Prisma.Decimal(0));
+    const personalWithdrawals = expenses
+      .filter((e) => e.isPersonal)
+      .reduce((sum, e) => sum.plus(e.amount), new Prisma.Decimal(0));
 
     const purchases = await this.prisma.purchase.findMany({ where: { date: { gte: start, lt: end }, deletedAt: null } });
-    const totalPurchases = purchases.reduce((sum, p) => sum + Number(p.totalAmount), 0);
+    const totalPurchases = purchases.reduce((sum, p) => sum.plus(p.totalAmount), new Prisma.Decimal(0));
 
     const flourTx = await this.prisma.flourTransaction.findMany({ where: { date: { gte: start, lt: end }, type: InventoryTxType.CONSUMPTION } });
     const flourConsumedKg = flourTx.reduce((sum, t) => sum + t.totalWeightKg, 0);
@@ -76,9 +82,9 @@ export class DailyClosingService {
     const wasteQty = productionItems.reduce((sum, i) => sum + i.wasteQty, 0);
 
     const cashBox = await this.prisma.cashBox.findUnique({ where: { date: start } });
-    const cashBalance = cashBox ? Number(cashBox.calculatedBalance ?? cashBox.openingBalance) : 0;
+    const cashBalance = cashBox ? new Prisma.Decimal(cashBox.calculatedBalance ?? cashBox.openingBalance) : new Prisma.Decimal(0);
 
-    const approxProfit = totalSales - totalExpenses - totalPurchases - personalWithdrawals;
+    const approxProfit = totalSales.minus(totalExpenses).minus(totalPurchases).minus(personalWithdrawals);
 
     return {
       totalProduction,
