@@ -194,7 +194,7 @@ class _GeneratePayrollScreenState extends State<GeneratePayrollScreen> {
               children: [
                 if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
                 DropdownButtonFormField<String>(
-                  value: _employeeId,
+                  initialValue: _employeeId,
                   decoration: const InputDecoration(labelText: 'کارمند'),
                   items: _employees.map((e) => DropdownMenuItem<String>(value: e['id'] as String, child: Text(e['fullName'] as String))).toList(),
                   onChanged: (value) => setState(() => _employeeId = value),

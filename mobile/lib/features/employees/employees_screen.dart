@@ -77,7 +77,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 TextField(controller: fullNameController, decoration: const InputDecoration(labelText: 'نام کامل')),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   decoration: const InputDecoration(labelText: 'نقش'),
                   items: _roleOptions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                   onChanged: (value) => setDialogState(() => role = value ?? _roleOptions.first),
@@ -209,7 +209,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
             children: [
               if (error != null) Text(error!, style: const TextStyle(color: Colors.red)),
               DropdownButtonFormField<String>(
-                value: shift,
+                initialValue: shift,
                 decoration: const InputDecoration(labelText: 'شیفت'),
                 items: _shiftLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
                 onChanged: (value) => setDialogState(() => shift = value ?? 'MORNING'),
@@ -265,7 +265,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
               children: [
                 if (error != null) Text(error!, style: const TextStyle(color: Colors.red)),
                 DropdownButtonFormField<String>(
-                  value: status,
+                  initialValue: status,
                   decoration: const InputDecoration(labelText: 'وضعیت'),
                   items: _attendanceLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
                   onChanged: (value) => setDialogState(() => status = value ?? 'PRESENT'),

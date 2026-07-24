@@ -90,7 +90,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(controller: amountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مبلف')),
               DropdownButtonFormField<String>(
-                value: paymentMethodId,
+                initialValue: paymentMethodId,
                 decoration: const InputDecoration(labelText: 'روش پرداخت'),
                 items: _paymentMethods.map((p) => DropdownMenuItem<String>(value: p['id'] as String, child: Text(p['name'] as String))).toList(),
                 onChanged: (value) => setDialogState(() => paymentMethodId = value),

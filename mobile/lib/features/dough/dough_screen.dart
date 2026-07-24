@@ -199,7 +199,7 @@ class _NewDoughBatchScreenState extends State<NewDoughBatchScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Column(children: [
                   DropdownButtonFormField<String>(
-                    value: division.productId,
+                    initialValue: division.productId,
                     decoration: const InputDecoration(labelText: 'محصول (اختیاری)'),
                     items: _products
                         .map((p) => DropdownMenuItem<String>(value: p['id'] as String, child: Text(p['name'] as String? ?? '')))
