@@ -4,6 +4,7 @@ import '../sales/sales_screen.dart';
 import '../production/production_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../finance/finance_screen.dart';
+import '../purchases/purchases_screen.dart';
 import '../more/more_screen.dart';
 
 class AppShell extends StatefulWidget {
