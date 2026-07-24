@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../customers/customers_screen.dart';
 import '../suppliers/suppliers_screen.dart';
 import '../purchases/purchases_screen.dart';
+import '../employees/employees_screen.dart';
+import '../payroll/payroll_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -33,8 +35,18 @@ class MoreScreen extends StatelessWidget {
           ),
           const Divider(),
           const _SectionHeader(title: 'پرسنل و حقوق'),
-          _ComingSoonTile(icon: Icons.badge_outlined, title: 'کارمندان'),
-          _ComingSoonTile(icon: Icons.payments_outlined, title: 'حقوق و دسٹمزد'),
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('کارمندان'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmployeesScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments_outlined),
+            title: const Text('حقوق و دستمزد'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PayrollScreen())),
+          ),
           const Divider(),
           const _SectionHeader(title: 'گزارش‌ها و بستن روز'),
           _ComingSoonTile(icon: Icons.event_available_outlined, title: 'بستن روز'),
