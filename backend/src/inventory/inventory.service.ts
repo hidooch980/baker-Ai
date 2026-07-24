@@ -31,7 +31,8 @@ export class InventoryService {
 
   async adjustStock(id: string, type: InventoryTxType, quantity: number, note: string | undefined, actorId?: string) {
     const item = await this.findOne(id);
-    const isIncrease = [InventoryTxType.INITIAL, InventoryTxType.PURCHASE, InventoryTxType.RECEIVE].includes(type);
+    const increaseTypes: InventoryTxType[] = [InventoryTxType.INITIAL, InventoryTxType.PURCHASE, InventoryTxType.RECEIVE];
+    const isIncrease = increaseTypes.includes(type);
     const delta = isIncrease ? quantity : -quantity;
 
     const updated = await this.prisma.$transaction(async (tx) => {

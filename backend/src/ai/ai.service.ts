@@ -41,7 +41,7 @@ export class AiService {
   async ask(question: string, userId?: string, conversationId?: string) {
     const conversation = conversationId
       ? await this.prisma.aIConversation.findUnique({ where: { id: conversationId } })
-      : await this.prisma.aIConversation.create({ data: { userId, title: question.slice(0, 60) } });
+      : await this.prisma.aIConversation.create({ data: { userId: userId ?? null, title: question.slice(0, 60) } });
 
     if (!conversation) throw new NotFoundException('گفتگو یافت نشد.');
 

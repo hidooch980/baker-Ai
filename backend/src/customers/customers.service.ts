@@ -79,7 +79,7 @@ export class CustomersService {
       include: { customer: true },
     });
     for (const item of overdue) {
-      if (item.customer.balance > 0) {
+      if (Number(item.customer.balance) > 0) {
         await this.prisma.notification.create({
           data: {
             type: NotificationType.DEBT_DUE,

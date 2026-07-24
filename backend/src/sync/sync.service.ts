@@ -122,8 +122,8 @@ export class SyncService {
       this.prisma.customer.findMany({ where: { ...where, deletedAt: null } }),
       this.prisma.supplier.findMany({ where: { ...where, deletedAt: null } }),
       this.prisma.employee.findMany({ where: { ...where, deletedAt: null } }),
-      this.prisma.paymentMethod.findMany({ where }),
-      this.prisma.expenseCategory.findMany({ where }),
+      this.prisma.paymentMethod.findMany(),
+      this.prisma.expenseCategory.findMany(),
       this.prisma.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50 }),
     ]);
 
