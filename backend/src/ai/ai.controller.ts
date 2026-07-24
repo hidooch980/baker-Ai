@@ -20,7 +20,7 @@ export class AiController {
   }
 
   @Get('conversations/:id')
-  getConversation(@Param('id') id: string) {
-    return this.aiService.getConversation(id);
+  getConversation(@Param('id') id: string, @CurrentUser() actor: { id: string }) {
+    return this.aiService.getConversation(id, actor?.id);
   }
 }

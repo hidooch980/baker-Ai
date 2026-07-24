@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomersService } from '../customers/customers.service';
@@ -30,12 +30,18 @@ export class AiService {
     return this.prisma.aIConversation.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 50 });
   }
 
-  async getConversation(id: string) {
+  /**
+   * رفع باگ دسترسی (IDOR): پیش‌تر این متد بدون بررسی مالکیت، گفتگوی هر کاربری را با شناسه‌اش برمی‌گرداند
+   * و هر کاربر لاگین‌شده می‌توانست تاریخچه گفتگوهای هوش مصنوعی (شامل داده‌های حساس فروش/بدهی/موجودی) کاربران دیگر را بخواند.
+   * اکنون فقط صاحب گفتگو اجازه مشاهده دارد.
+   */
+  async getConversation(id: string, userId?: string) {
     const conversation = await this.prisma.aIConversation.findUnique({
       where: { id },
       include: { messages: { orderBy: { createdAt: 'asc' } } },
     });
     if (!conversation) throw new NotFoundException('گفتگو یافت نشد.');
+    if (conversation.userId !== userId) throw new ForbiddenException('اجازه دسترسی به این گفتگو را ندارید.');
     return conversation;
   }
 
@@ -43,6 +49,9 @@ export class AiService {
     let conversation;
     if (conversationId) {
       conversation = await this.prisma.aIConversation.findUnique({ where: { id: conversationId } });
+      if (conversation && conversation.userId !== userId) {
+        throw new ForbiddenException('اجازه دسترسی به این گفتگو را ندارید.');
+      }
     } else {
       if (!userId) throw new UnauthorizedException('کاربر نامعتبر است.');
       conversation = await this.prisma.aIConversation.create({
