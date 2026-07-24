@@ -4,6 +4,8 @@ import '../suppliers/suppliers_screen.dart';
 import '../purchases/purchases_screen.dart';
 import '../employees/employees_screen.dart';
 import '../payroll/payroll_screen.dart';
+import '../dough/dough_screen.dart';
+import '../daily_closing/daily_closing_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -34,6 +36,14 @@ class MoreScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PurchasesScreen())),
           ),
           const Divider(),
+          const _SectionHeader(title: 'تولید'),
+          ListTile(
+            leading: const Icon(Icons.bakery_dining_outlined),
+            title: const Text('چانه‌گیری خمیر'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DoughScreen())),
+          ),
+          const Divider(),
           const _SectionHeader(title: 'پرسنل و حقوق'),
           ListTile(
             leading: const Icon(Icons.badge_outlined),
@@ -49,12 +59,17 @@ class MoreScreen extends StatelessWidget {
           ),
           const Divider(),
           const _SectionHeader(title: 'گزارش‌ها و بستن روز'),
-          _ComingSoonTile(icon: Icons.event_available_outlined, title: 'بستن روز'),
+          ListTile(
+            leading: const Icon(Icons.event_available_outlined),
+            title: const Text('بستن روز'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyClosingScreen())),
+          ),
           _ComingSoonTile(icon: Icons.bar_chart_outlined, title: 'گزارش‌ها'),
           const Divider(),
           const _SectionHeader(title: 'سایر'),
           _ComingSoonTile(icon: Icons.notifications_outlined, title: 'اعلان‌ها'),
-          _ComingSoonTile(icon: Icons.smart_toy_outlined, title: 'دستیار هوش مند نانوایی'),
+          _ComingSoonTile(icon: Icons.smart_toy_outlined, title: 'دستیار هوشمند نانوایی'),
           _ComingSoonTile(icon: Icons.sync_outlined, title: 'وضعیت همگام‌سازی'),
           _ComingSoonTile(icon: Icons.backup_outlined, title: 'پشتیبان‌گیری'),
         ],
